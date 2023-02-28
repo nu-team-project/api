@@ -4,6 +4,17 @@
 
 ---
 
+# Links to Deployed Version of API
+## Note this is just a test version of the API
+
+- [Base](teamprojectapi-1-z5074741.deta.app)
+- [Projects](teamprojectapi-1-z5074741.deta.app/projects)
+- [Devices](teamprojectapi-1-z5074741.deta.app/projects/example/devices)
+-   [fileType=ccon](teamprojectapi-1-z5074741.deta.app/projects/example/devices?fileTypes=ccon)
+
+
+---
+
 ## How to run the API
 
 To run the API on your computer, you need python, FastAPI, and uvicorn installed, then run the command:
