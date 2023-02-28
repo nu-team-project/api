@@ -4,9 +4,19 @@
 
 ---
 
+## How to run the API
+
+To run the API on your computer, you need python, FastAPI, and uvicorn installed, then run the command:
+
+`uvicorn main:app --reload`
+
+assuming the file with the API code is called `main` and the FastAPI python object is called `app`
+
+---
+
 ## Useful Links
 
-- [Disruptive Technolodies API Reference](https://developer.disruptive-technologies.com/api )
+- [Disruptive Technologies API Reference](https://developer.disruptive-technologies.com/api )
 - Python Libraries:
     - [FastAPI](fastapi.tiangolo.com)
     - [Uvicorn](www.uvicorn.org)
