@@ -10,7 +10,7 @@
 - [Base](https://teamprojectapi-1-z5074741.deta.app)
 - [Projects](https://teamprojectapi-1-z5074741.deta.app/projects)
 - [Devices](https://teamprojectapi-1-z5074741.deta.app/projects/example/devices)
--   [fileType=ccon](https://teamprojectapi-1-z5074741.deta.app/projects/example/devices?fileTypes=ccon)
+    - [fileType=ccon](https://teamprojectapi-1-z5074741.deta.app/projects/example/devices?fileTypes=ccon)
 
 
 ---
