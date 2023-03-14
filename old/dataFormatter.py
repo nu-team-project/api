@@ -16,6 +16,44 @@ class dataFormatter:
             "cloudConnectorCount":cloudConnectorCount
         }
 
+    # def device(this,
+    #         project_id:str,device_id:str,deviceType:str,productNumber:str,labels:list[dict],
+    #         connStatus_available:list[str]=["ETHERNET","CELLULAR"],connStatus_updateTime="time",
+    #         ethernetStatus_macAddress:str="mac",ethernetStatus_ipAddress:str="ip",ethernetStatus_updateTime:str="time",
+    #         cellularStatus_signalStrength:int=0,cellularStatus_updateTime:str="time",
+    #         touch_updateTime:str="time",
+    #         network_signalStrength:int=0,network_rssi:int=0,network_updateTime:str="time",
+    #         network_ccon_id:int=0,network_ccon_signalStrength:int=0,network_ccon_rssi:int=0,
+    #         battery_percentage:int=0,battery_updateTime:str="time",
+    #         temp_temperature:float=0,temp_updateTime:str="time",
+    #         humidity_temperature:float=0,humidity_relative:float=0,humidity_updateTime:str="time",
+    #         co2_ppm:int=0,co2_updateTime:str="time"):
+    #     if(deviceType=="ccon"):
+    #         return this.cloudConnector(project_id,device_id,productNumber,labels,
+    #         connStatus_available,connStatus_updateTime,
+    #         ethernetStatus_macAddress,ethernetStatus_ipAddress,ethernetStatus_updateTime,
+    #         cellularStatus_signalStrength,cellularStatus_updateTime,
+    #         touch_updateTime)
+    #     elif(deviceType in ["temperature","humidity","co2"]):
+    #         return this.sensor(project_id,device_id,deviceType,productNumber,
+    #         network_signalStrength,network_rssi,network_updateTime,
+    #         network_ccon_id,network_ccon_signalStrength,network_ccon_rssi,
+    #         battery_percentage,battery_updateTime,
+    #         temp_temperature,temp_updateTime,
+    #         humidity_temperature,humidity_relative,humidity_updateTime,
+    #         co2_ppm,co2_updateTime)
+    #     else:
+    #         return {"error":"unknown device type"}
+        
+    def device(this,device:dict):
+        deviceType=device["type"]
+        if(deviceType=="ccon"):
+            return this.cloudConnector(device)
+        elif(deviceType in ["temperature","humidity","co2"]):
+            return this.sensor(device)
+        else:
+            return {"error":"unknown device type"}
+
     def cloudConnector(this,
             project_id:str,device_id:str,productNumber:str,labels:list[dict],
             connStatus_available:list[str]=["ETHERNET","CELLULAR"],connStatus_updateTime="time",
@@ -66,7 +104,7 @@ class dataFormatter:
     
 
     def sensor(this,
-            project_id:str,device_id:str,sensorType:str,productNumber:int,
+            project_id:str,device_id:str,type:str,productNumber:int,
             network_signalStrength:int=0,network_rssi:int=0,network_updateTime:str="time",
             network_ccon_id:int=0,network_ccon_signalStrength:int=0,network_ccon_rssi:int=0,
             battery_percentage:int=0,battery_updateTime:str="time",
@@ -76,7 +114,7 @@ class dataFormatter:
         """
         A JSON formatter for all sensor types
         """
-        match sensorType:
+        match type:
             case "temperature":
                 event=this.temperatureEvent(temperature=temp_temperature,updateTime=temp_updateTime)
             case "humidity":
@@ -84,10 +122,10 @@ class dataFormatter:
             case "co2":
                 event=this.co2Event(ppm=co2_ppm,updateTime=co2_updateTime)
             case _:
-                return {"error":"invalid sensor type: "+sensorType}
+                return {"error":"invalid sensor type: "+type}
         return {
                 "name": "/projects/"+project_id+"/devices/"+device_id,
-                "type": sensorType,
+                "type": type,
                 "labels": {},
                 "reported": {
                     "networkStatus": {
@@ -107,7 +145,7 @@ class dataFormatter:
                         "percentage": battery_percentage,
                         "updateTime": battery_updateTime
                     },
-                    sensorType:event[sensorType]
+                    type:event[type]
                 },
                 "productNumber": productNumber
             }
