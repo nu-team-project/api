@@ -16,11 +16,11 @@ async def root():
         "links":{
             "docs":host+"/docs"
             ,"projects":host+"/projects/"
-            ,"--testingProject":host+"/projects/testing"
-            ,"devices":host+"/projects/testing/devices"
-            ,"--temperatureSensors":host+"/projects/testing/devices?deviceTypes=temperature"
-            ,"--exampleDevice":host+"/projects/testing/devices?deviceIds=example"
-            ,"device-exampleDevice":host+"/projects/testing/devices/example"
+            ,"--filter projectId":host+"/projects/i7prjqnb2c4b6rob9xc2"
+            ,"devices":host+"/projects/i7prjqnb2c4b6rob9xc2/devices"
+            ,"--filter sensorTypes":host+"/projects/i7prjqnb2c4b6rob9xc2/devices?deviceTypes=temperature&deviceTypes=co2"
+            ,"--filter deviceIds":host+"/projects/i7prjqnb2c4b6rob9xc2/devices?deviceIds=q6xbxrgj42rvjz6bfdgt&deviceIds=k59q5jckmyzm8bpqgb5g"
+            ,"device-q6xbxrgj42rvjz6bfdgt":host+"/projects/i7prjqnb2c4b6rob9xc2/devices/q6xbxrgj42rvjz6bfdgt"
         }
     }
 
@@ -33,19 +33,29 @@ async def list_projects(query:str="",pageSize:int=10,pageToken:int=0):
                     "name":"projects/example",
                     "displayName":"Example Project",
                     "inventory":False,
-                    "organisation":"organizations/b8ntihoaplm0028st07g",
+                    "organisation":"organizations/i7prjqnb2c4b6rob9xc2",
                     "organizationDisplayName": "IoT Monitoring Inc.",
-                    "sensorCount":6,
-                    "cloudConnectorCount":9
+                    "sensorCount":12,
+                    "cloudConnectorCount":4
                 }
             ],"nextPageToken":"c0un66ecie6seakamrlg"}
 
-@app.get("/projects/{project}",tags=["Not Implemented"],description=Desc["project"])
+@app.get("/projects/{project}",tags=["Organizations & Projects"],description=Desc["project"])
 async def get_a_single_project(project):
-    return {
-        "requested project": project,
-        "message": "page under construction"
-    }
+    if(project=="example"):
+        return {"projects":[
+                    {
+                        "name":"projects/example",
+                        "displayName":"Example Project",
+                        "inventory":False,
+                        "organisation":"organizations/i7prjqnb2c4b6rob9xc2",
+                        "organizationDisplayName": "IoT Monitoring Inc.",
+                        "sensorCount":12,
+                        "cloudConnectorCount":4
+                    }
+                ],"nextPageToken":"c0un66ecie6seakamrlg"}
+    else:
+         return {"message":"project not found"}
 
 @app.get("/projects/{project}/devices",tags=["Devices & Labels"],description=Desc["deviceList"])
 async def list_sensors_and_cloud_devices(project:str,deviceIds:list[str]|None=Query(default=None),deviceTypes:list[str]|None=Query(default=None),labelFilters:list[str]|None=Query(default=None),orderBy:str=None,query:str=None,productNumbers:list[str]|None=Query(default=None),pageSize:int=None,pageToken:str=None):
@@ -53,6 +63,10 @@ async def list_sensors_and_cloud_devices(project:str,deviceIds:list[str]|None=Qu
         return {"devices":deviceData}
 
 @app.get("/projects/{project}/devices/{device}",tags=["Devices & Labels"],description=Desc["device"])
-async def get_a_single_device(project:str,device:str,sensorType:str):
-    output = myDataRead.getDevices()
+async def get_a_single_device(project:str,device:str):
+    output = myDataRead.getDevices(project_id=project,deviceIds=[device])
     return output
+
+@app.get("/projects/{project}/devices/{device}/events",tags=["Event History"],description=Desc["eventHistory"])
+async def event_history(project:str,device:str,eventTypes:list[str],startTime:str,endTime:str,pageSize:int=100):
+    pass

@@ -7,17 +7,16 @@ Desc={
 ## KV6002
 """,
 "deviceList":"""
-shows generated list of devices, 5 ccons and 25 temp sensors, can be filtered by using the parameter deviceTypes
+shows the database stored devices, can be filtered by types, ids, and labelFilters
 
 params in use:
 
 - deviceTypes:list[str]|None=Query(default=None)
 - deciveIds:list[str]|None=Query(default=None)
-
+- labelFilters:list[str]|None=Query(default=None)
 
 unused params:
 
-- labelFilters:list[str]|None=Query(default=None)
 - orderBy:str=None
 - query:str=None
 - productNumbers:list[str]|None=Query(default=None)
@@ -25,18 +24,15 @@ unused params:
 - pageToken:str=None
 """,
 "device":"""
-Returns the given projects and device number in an otherwise empty temp sensor JSON object
-
-params in use:
-
-unused params:
-- project:str
-- device:str
-- sensorType:str
+Returns the database stored device specified in the url
 """,
-"project":"NOT CURRENTLY IN USE---PAGE UNDER CONSTRUCTION",
+"project":"""
+Returns the only project that will return data from other endpoints
+""",
 "projectList":"""
-Shows list of projects
+Returns fake projects hard coded into the API.
+Projects aren't being used in this prototype and their existence is purely to match the Disruptive Systems API.
+Shouldn't need dynamic for this prototype
 
 params in use:
 
@@ -44,6 +40,13 @@ unused params:
 - query:str=""
 - pageSize:int=10
 - pageToken:int=0
+""",
+"eventHistory":"""
+Soon to be implemented
+
+params in use:
+
+unused params:
 """
 }
 tags_metadata = [
@@ -56,11 +59,11 @@ tags_metadata = [
         "description": "DS endpoints about devices and labels."
     },
     {
-        "name": "Organizations & Projects",
-        "description": "DS endpoints about organizations and projects."
+        "name": "Event History",
+        "description": "DS endpoit about event history"
     },
     {
-        "name": "Not Implemented",
-        "description": "These endpoints have not been implemented yet."
+        "name": "Organizations & Projects",
+        "description": "DS endpoints about organizations and projects."
     }
 ]
