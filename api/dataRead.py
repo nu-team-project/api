@@ -80,7 +80,6 @@ class dataRead:
             return output
     
     
-
     def __getProjectIdFromName(this,name:str):
         return name.rsplit('/')[2]
 
