@@ -79,6 +79,123 @@ class dataRead:
                 })
             return output
     
+    def getEvents(this):
+        print("hello")
+        query="""
+        SELECT event_id, device_id, value, datetime, event_type
+        FROM events
+        """
+        print("Query = "+query)
+        rows=this.db.run_query(query)
+        output=[]
+        for each in rows:
+            output.append({
+                "event_id":each[0], #remove
+                "device_id":each[1] #remove
+            })
+            match each[4]:
+                
+                
+                case "temperature":
+                    output.append({
+                        "temperature":{
+                            "value": each[2],
+                            "updateTime": each[3]
+                        }
+                    })
+                case "humidity":
+                    output.append({
+                        "humidity":{
+                            "value": each[2], #needs to split temp and relative humidity
+                            "updateTime": each[3]
+                        }
+                    })
+                case "co2":
+                    output.append({
+                        "co2":{
+                            "ppm": each[2],
+                            "updateTime": each[3]
+                        }
+                    })
+                case "touch":
+                    output.append({
+                        "touch":{
+                            "updateTime": each[3]
+                        }
+                    })
+                case "battery":
+                    output.append({
+                        "batteryStatus":{
+                            "percentage": each[2],
+                            "updateTime": each[3]
+                        }
+                    })
+                case "network":
+                    value=each[2].split(",")
+                    signalStrength=value[0].split(":")[1]
+                    rssi=value[1].split(":")[1]
+                    cc_id=value[2].split(":")[1]
+                    cc_signalStrength=value[3].split(":")[1]
+                    cc_rssi=value[4].split(":")[1]
+                    transmissionMode=value[5].split(":")[1]
+                    output.append({
+                        "networkStatus":{
+                            "signalStrength": signalStrength,
+                            "rssi": rssi,
+                            "updateTime": each[3],
+                            "cloudConnectors": [{
+                                "id": cc_id,
+                                "signalStrength": cc_signalStrength,
+                                "rssi": cc_rssi,
+                            }],
+                            "transmissionMode": transmissionMode
+                        }
+                    })
+                case "connStatus":
+                    value=each[2].split(",")
+                    connection=value[0].split(":")[1]
+                    available=value[1].split(":")[1]
+                    output.append({
+                        "connectionStatus": { 
+                            "connection": connection,
+                            "available": available,
+                            "updateTime": each[3]
+                        }
+                    })
+                case "etherStatus":
+                    value=each[2].split(",")
+                    macAddress=value[0].split(":",1)[1]
+                    ipAddress=value[1].split(":",1)[1]
+                    errors=value[2].split(":",1)[1].split("[")[1].split("]")[0].split(";")
+                    errorCode=errors[0].split(":",1)[1]
+                    errorMessage=errors[1].split(":",1)[1]
+                    output.append({
+                        "ethernetStatus": {
+                            "macAddress": macAddress,
+                            "ipAddress": ipAddress,
+                            "errors": [
+                                {"code": errorCode, "message": errorMessage},
+                            ],
+                            "updateTime": each[3],
+                        }
+                    })
+                case "cellStatus":
+                    value=each[2].split(",") #signalStrength:70,errors:[code:404,message:not found]
+                    signalStrength=value[0].split(":")[1]
+                    errors=value[1].split(":",1)[1].split("[")[1].split("]")[0].split(";")
+                    errorCode=errors[0].split(":",1)[1]
+                    errorMessage=errors[1].split(":",1)[1]
+                    output.append({
+                        "cellularStatus": {
+                            "signalStrength": signalStrength,
+                            "errors": [
+                                {"code": errorCode, "message": errorMessage},
+                            ],
+                            "updateTime": each[3],
+                        }
+                    })
+        return output
+
     
     def __getProjectIdFromName(this,name:str):
         return name.rsplit('/')[2]

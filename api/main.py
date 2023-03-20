@@ -30,10 +30,10 @@ async def root():
 async def list_projects(query:str="",pageSize:int=10,pageToken:int=0):
     return {"projects":[
                 {
-                    "name":"projects/example",
+                    "name":"projects/i7prjqnb2c4b6rob9xc2",
                     "displayName":"Example Project",
                     "inventory":False,
-                    "organisation":"organizations/i7prjqnb2c4b6rob9xc2",
+                    "organisation":"organizations/0",
                     "organizationDisplayName": "IoT Monitoring Inc.",
                     "sensorCount":12,
                     "cloudConnectorCount":4
@@ -42,13 +42,13 @@ async def list_projects(query:str="",pageSize:int=10,pageToken:int=0):
 
 @app.get("/projects/{project}",tags=["Organizations & Projects"],description=Desc["project"])
 async def get_a_single_project(project):
-    if(project=="example"):
+    if(project=="i7prjqnb2c4b6rob9xc2"):
         return {"projects":[
                     {
-                        "name":"projects/example",
+                        "name":"projects/i7prjqnb2c4b6rob9xc2",
                         "displayName":"Example Project",
                         "inventory":False,
-                        "organisation":"organizations/i7prjqnb2c4b6rob9xc2",
+                        "organisation":"organizations/0",
                         "organizationDisplayName": "IoT Monitoring Inc.",
                         "sensorCount":12,
                         "cloudConnectorCount":4
@@ -59,8 +59,8 @@ async def get_a_single_project(project):
 
 @app.get("/projects/{project}/devices",tags=["Devices & Labels"],description=Desc["deviceList"])
 async def list_sensors_and_cloud_devices(project:str,deviceIds:list[str]|None=Query(default=None),deviceTypes:list[str]|None=Query(default=None),labelFilters:list[str]|None=Query(default=None),orderBy:str=None,query:str=None,productNumbers:list[str]|None=Query(default=None),pageSize:int=None,pageToken:str=None):
-        deviceData=myDataRead.getDevices(project_id=project,deviceIds=deviceIds,deviceTypes=deviceTypes,labelFilters=labelFilters)
-        return {"devices":deviceData}
+    deviceData=myDataRead.getDevices(project_id=project,deviceIds=deviceIds,deviceTypes=deviceTypes,labelFilters=labelFilters)
+    return {"devices":deviceData}
 
 @app.get("/projects/{project}/devices/{device}",tags=["Devices & Labels"],description=Desc["device"])
 async def get_a_single_device(project:str,device:str):
@@ -68,5 +68,7 @@ async def get_a_single_device(project:str,device:str):
     return output
 
 @app.get("/projects/{project}/devices/{device}/events",tags=["Event History"],description=Desc["eventHistory"])
-async def event_history(project:str,device:str,eventTypes:list[str],startTime:str,endTime:str,pageSize:int=100):
-    pass
+async def event_history(project:str=None,device:str=None,eventTypes:list[str]=None,startTime:str=None,endTime:str=None,pageSize:int=100):
+    print("hello there")
+    eventData=myDataRead.getEvents()
+    return {"events":eventData}
