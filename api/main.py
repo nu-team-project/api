@@ -1,5 +1,6 @@
+from typing import Union
 from fastapi import FastAPI, Query
-
+import datetime
 from dataRead import *
 from desc import *
 
@@ -20,6 +21,7 @@ async def root():
             ,"devices":host+"/projects/i7prjqnb2c4b6rob9xc2/devices"
             ,"--filter sensorTypes":host+"/projects/i7prjqnb2c4b6rob9xc2/devices?deviceTypes=temperature&deviceTypes=co2"
             ,"--filter deviceIds":host+"/projects/i7prjqnb2c4b6rob9xc2/devices?deviceIds=q6xbxrgj42rvjz6bfdgt&deviceIds=k59q5jckmyzm8bpqgb5g"
+            ,"--filter labelFilter group":host+"/projects/i7prjqnb2c4b6rob9xc2/devices?labelFilters=group=North%20Wing"
             ,"device-q6xbxrgj42rvjz6bfdgt":host+"/projects/i7prjqnb2c4b6rob9xc2/devices/q6xbxrgj42rvjz6bfdgt"
         }
     }
@@ -58,7 +60,7 @@ async def get_a_single_project(project):
          return {"message":"project not found"}
 
 @app.get("/projects/{project}/devices",tags=["Devices & Labels"],description=Desc["deviceList"])
-async def list_sensors_and_cloud_devices(project:str,deviceIds:list[str]|None=Query(default=None),deviceTypes:list[str]|None=Query(default=None),labelFilters:list[str]|None=Query(default=None),orderBy:str=None,query:str=None,productNumbers:list[str]|None=Query(default=None),pageSize:int=None,pageToken:str=None):
+async def list_sensors_and_cloud_devices(project:str,deviceIds:Union[list[str],None]=Query(default=None),deviceTypes:Union[list[str],None]=Query(default=None),labelFilters:Union[list[str],None]=Query(default=None),orderBy:str=None,query:str=None,productNumbers:Union[list[str],None]=Query(default=None),pageSize:int=None,pageToken:str=None):
     deviceData=myDataRead.getDevices(project_id=project,deviceIds=deviceIds,deviceTypes=deviceTypes,labelFilters=labelFilters)
     return {"devices":deviceData}
 
@@ -68,7 +70,15 @@ async def get_a_single_device(project:str,device:str):
     return output
 
 @app.get("/projects/{project}/devices/{device}/events",tags=["Event History"],description=Desc["eventHistory"])
-async def event_history(project:str=None,device:str=None,eventTypes:list[str]=None,startTime:str=None,endTime:str=None,pageSize:int=100):
-    print("hello there")
-    eventData=myDataRead.getEvents()
+async def event_history(project:str,device:str,eventTypes:Union[list[str],None]=Query(default=None),startTime:str=None,endTime:str=None,pageSize:int=100):
+    timeFormat="%Y-%m-%dT%H:%M:%S.%fZ"
+    if startTime is None:
+        startTime=datetime.datetime.now()-datetime.timedelta(hours = 24)
+    else:
+        startTime=datetime.datetime.strptime(startTime,timeFormat)
+    if endTime is None:
+        endTime=datetime.datetime.now()
+    else:
+        endTime=datetime.datetime.strptime(endTime,timeFormat)
+    eventData=myDataRead.getEvents(project_id=project,device_id=device,eventTypes=eventTypes,startTime=startTime,endTime=endTime)
     return {"events":eventData}

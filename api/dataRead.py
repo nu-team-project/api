@@ -1,5 +1,6 @@
 import random
 import string
+import datetime
 from dbConnect import *
 
 class dataRead:
@@ -12,7 +13,9 @@ class dataRead:
             if deviceTypes is not None:
                 if sql_where!="":
                     sql_where+=" AND"
-                sql_where+=" WHERE devices.type IN ("
+                else:
+                    sql_where+=" WHERE"
+                sql_where+=" devices.type IN ("
                 for i in range(len(deviceTypes)):
                     if i!=0:
                         sql_where+=","
@@ -21,7 +24,9 @@ class dataRead:
             if deviceIds is not None:
                 if sql_where!="":
                     sql_where+=" AND"
-                sql_where+=" WHERE devices.device_name IN ("
+                else:
+                    sql_where+=" WHERE"
+                sql_where+=" devices.device_name IN ("
                 for i in range(len(deviceIds)):
                     if i!=0:
                         sql_where+=","
@@ -30,6 +35,8 @@ class dataRead:
             if labelFilters is not None:
                 if sql_where!="":
                     sql_where+=" AND"
+                else:
+                    sql_where+=" WHERE"
                 groups=[]
                 show=[]
                 for eachLabel in labelFilters:
@@ -41,7 +48,7 @@ class dataRead:
                             show.append(splitLabel[1])
                 
                 if len(groups)>0:
-                    sql_where+=" WHERE groups.group_name IN ("
+                    sql_where+=" groups.group_name IN ("
                     for i in range(len(groups)):
                         if i!=0:
                             sql_where+=","
@@ -49,7 +56,9 @@ class dataRead:
                     sql_where+=")"
 
                 if len(show)>0:
-                    sql_where+=" WHERE devices.show IN ("
+                    if len(groups)>0:
+                        sql_where+=" AND"
+                    sql_where+=" devices.show IN ("
                     for i in range(len(show)):
                         if i!=0:
                             sql_where+=","
@@ -63,7 +72,6 @@ class dataRead:
             ON devices.group_id=groups.group_id
             """
             query+=sql_where
-            print("Query = "+query)
             rows=this.db.run_query(query)
             output=[]
             for each in rows:
@@ -74,63 +82,105 @@ class dataRead:
                         "group":each[2],
                         "show":each[3]  
                     },
-                    "events":this.__emptyEvents(each[1]),
+                    "events":this.__oneDeviceLastEvents(project_id=project_id,device_id=each[0],type=each[1]),
                     "productNumber":each[4]
                 })
             return output
-    
-    def getEvents(this):
-        print("hello")
+            
+    def __DT1BetweenDT2andDT3(this,dateTime1:datetime.datetime,dateTime2:datetime.datetime,dateTime3:datetime.datetime):
+        if dateTime2<dateTime1 and dateTime1<dateTime3:
+            return True
+        else:
+            return False
+
+    def __oneDeviceLastEvents(this,project_id:str,device_id:str,type:str):
+        output={}
+        if type == "temperature":
+            output["temperature"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["temperature"])[-1]["temperature"]
+            output["networkStatus"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["networkStatus"])[-1]["networkStatus"]
+            output["batteryStatus"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["batteryStatus"])[-1]["batteryStatus"]
+            output["touch"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["touch"])[-1]["touch"]
+        elif type == "humidity":
+            output["humidity"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["humidity"])[-1]["humidity"]
+            output["networkStatus"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["networkStatus"])[-1]["networkStatus"]
+            output["batteryStatus"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["batteryStatus"])[-1]["batteryStatus"]
+            output["touch"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["touch"])[-1]["touch"]
+        elif type == "co2":
+            output["co2"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["co2"])[-1]["co2"]
+            output["networkStatus"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["networkStatus"])[-1]["networkStatus"]
+            output["batteryStatus"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["batteryStatus"])[-1]["batteryStatus"]
+            output["touch"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["touch"])[-1]["touch"]
+        elif type == "ccon":
+            output["connectionStatus"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["connectionStatus"])[-1]["connectionStatus"]
+            output["ethernetStatus"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["ethernetStatus"])[-1]["ethernetStatus"]
+            output["cellularStatus"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["cellularStatus"])[-1]["cellularStatus"]
+            output["touch"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["touch"])[-1]["touch"]
+        return output
+
+    def getEvents(this,project_id:string=None,device_id:string=None,eventTypes:list[str]=None,startTime:datetime.datetime=None,endTime:datetime.datetime=None,pageSize:int=None):
+        if startTime is None:
+            startTime=datetime.datetime.now()-datetime.timedelta(hours = 24)
+        if endTime is None:
+            endTime=datetime.datetime.now()
         query="""
-        SELECT event_id, device_id, value, datetime, event_type
+        SELECT event_id, device_name, value, datetime, event_type
         FROM events
+        INNER JOIN devices
+        ON events.device_id = devices.device_id
         """
-        print("Query = "+query)
+        sql_where='WHERE device_name = "'+device_id+'"'
+        if eventTypes is not None:
+            sql_where+=" AND events.event_type IN ("
+            for i in range(len(eventTypes)):
+                if i!=0:
+                    sql_where+=","
+                sql_where+='"'+eventTypes[i]+'"'
+            sql_where+=")"
+        query+=sql_where
         rows=this.db.run_query(query)
         output=[]
         for each in rows:
-            output.append({
-                "event_id":each[0], #remove
-                "device_id":each[1] #remove
-            })
-            match each[4]:
-                
-                
-                case "temperature":
+            timeFormat="%Y-%m-%dT%H:%M:%S.%fZ"
+            if this.__DT1BetweenDT2andDT3(datetime.datetime.strptime(each[3],timeFormat),startTime,endTime):
+                if each[4] == "temperature":
                     output.append({
                         "temperature":{
                             "value": each[2],
                             "updateTime": each[3]
                         }
                     })
-                case "humidity":
+                elif each[4] == "humidity":
+                    value=each[2].split(",")
+                    temperature=value[0].split(":")[1]
+                    relativeHumidity=value[1].split(":")[1]
                     output.append({
                         "humidity":{
-                            "value": each[2], #needs to split temp and relative humidity
+                            "temperature": temperature,
+                            "relativeHumidity":relativeHumidity,
                             "updateTime": each[3]
                         }
                     })
-                case "co2":
+                elif each[4] == "co2":
                     output.append({
                         "co2":{
                             "ppm": each[2],
                             "updateTime": each[3]
                         }
                     })
-                case "touch":
+                elif each[4] == "touch":
                     output.append({
                         "touch":{
                             "updateTime": each[3]
                         }
                     })
-                case "battery":
+                elif each[4] == "batteryStatus":
                     output.append({
                         "batteryStatus":{
                             "percentage": each[2],
                             "updateTime": each[3]
                         }
                     })
-                case "network":
+                elif each[4] == "networkStatus":
                     value=each[2].split(",")
                     signalStrength=value[0].split(":")[1]
                     rssi=value[1].split(":")[1]
@@ -151,10 +201,10 @@ class dataRead:
                             "transmissionMode": transmissionMode
                         }
                     })
-                case "connStatus":
+                elif each[4] == "connectionStatus":
                     value=each[2].split(",")
                     connection=value[0].split(":")[1]
-                    available=value[1].split(":")[1]
+                    available=value[1].split(":")[1].split("[")[1].split("]")[0].split(";")
                     output.append({
                         "connectionStatus": { 
                             "connection": connection,
@@ -162,7 +212,7 @@ class dataRead:
                             "updateTime": each[3]
                         }
                     })
-                case "etherStatus":
+                elif each[4] == "ethernetStatus":
                     value=each[2].split(",")
                     macAddress=value[0].split(":",1)[1]
                     ipAddress=value[1].split(":",1)[1]
@@ -179,8 +229,8 @@ class dataRead:
                             "updateTime": each[3],
                         }
                     })
-                case "cellStatus":
-                    value=each[2].split(",") #signalStrength:70,errors:[code:404,message:not found]
+                elif each[4] == "cellularStatus":
+                    value=each[2].split(",")
                     signalStrength=value[0].split(":")[1]
                     errors=value[1].split(":",1)[1].split("[")[1].split("]")[0].split(";")
                     errorCode=errors[0].split(":",1)[1]
@@ -271,15 +321,14 @@ class dataRead:
                 }
             }
         }
-        match type:
-            case "ccon":
-                events=allEvents["ccon"]
-            case "temperature":
-                events=allEvents["temperature"]|allEvents["sensor"]
-            case "humidity":
-                events=allEvents["humidity"]|allEvents["sensor"]
-            case "co2":
-                events=allEvents["co2"]|allEvents["sensor"]
-            case _:
-                events={}
+        if type == "ccon":
+            events=allEvents["ccon"]
+        elif type == "temperature":
+            events=allEvents["temperature"]|allEvents["sensor"]
+        elif type == "humidity":
+            events=allEvents["humidity"]|allEvents["sensor"]
+        elif type == "co2":
+            events=allEvents["co2"]|allEvents["sensor"]
+        else:
+            events={}
         return events

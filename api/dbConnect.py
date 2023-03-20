@@ -3,7 +3,7 @@ from sqlite3 import Error
 
 class dbConnect:
     def __init__(this) -> None:
-        this.__database=r"C:\github\teamProject\api\api\kew.db"
+        this.__database="kew.db"
 
     def run_query(this, query):
         conn = None
