@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Annotated, Union
 from fastapi import FastAPI, Query
 import datetime
 from dataRead import *
@@ -9,24 +9,30 @@ myDataRead=dataRead()
 app = FastAPI(title=Title["app"],description=Desc["app"],openapi_tags=tags_metadata)
 
 
+
+
 @app.get("/",tags=["default"])
 async def root():
     host="http://127.0.0.1:8000"
     return {
         "message": "Hello, World!",
         "links":{
-            "docs":host+"/docs"
+            "docs":"/docs"
             ,"projects":host+"/projects/"
-            ,"--filter projectId":host+"/projects/i7prjqnb2c4b6rob9xc2"
-            ,"devices":host+"/projects/i7prjqnb2c4b6rob9xc2/devices"
-            ,"--filter sensorTypes":host+"/projects/i7prjqnb2c4b6rob9xc2/devices?deviceTypes=temperature&deviceTypes=co2"
-            ,"--filter deviceIds":host+"/projects/i7prjqnb2c4b6rob9xc2/devices?deviceIds=q6xbxrgj42rvjz6bfdgt&deviceIds=k59q5jckmyzm8bpqgb5g"
-            ,"--filter labelFilter group":host+"/projects/i7prjqnb2c4b6rob9xc2/devices?labelFilters=group=North%20Wing"
-            ,"device-q6xbxrgj42rvjz6bfdgt":host+"/projects/i7prjqnb2c4b6rob9xc2/devices/q6xbxrgj42rvjz6bfdgt"
+            ,"--filter projectId":"/projects/i7prjqnb2c4b6rob9xc2"
+            ,"devices":"/projects/i7prjqnb2c4b6rob9xc2/devices"
+            ,"--filter sensorTypes":"/projects/i7prjqnb2c4b6rob9xc2/devices?deviceTypes=temperature&deviceTypes=co2"
+            ,"--filter deviceIds":"/projects/i7prjqnb2c4b6rob9xc2/devices?deviceIds=q6xbxrgj42rvjz6bfdgt&deviceIds=k59q5jckmyzm8bpqgb5g"
+            ,"--filter labelFilter group":"/projects/i7prjqnb2c4b6rob9xc2/devices?labelFilters=group=North%20Wing"
+            ,"device-q6xbxrgj42rvjz6bfdgt":"/projects/i7prjqnb2c4b6rob9xc2/devices/q6xbxrgj42rvjz6bfdgt"
         }
     }
 
-
+@app.get("/test")
+async def test():
+    return {
+        "message":"welcome to the test endpoint"
+    }
 
 @app.get("/projects",tags=["Organizations & Projects"],description=Desc["projectList"])
 async def list_projects(query:str="",pageSize:int=10,pageToken:int=0):
