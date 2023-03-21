@@ -18,7 +18,7 @@ async def root():
         "message": "Hello, World!",
         "links":{
             "docs":"/docs"
-            ,"projects":host+"/projects/"
+            ,"projects":"/projects/"
             ,"--filter projectId":"/projects/i7prjqnb2c4b6rob9xc2"
             ,"devices":"/projects/i7prjqnb2c4b6rob9xc2/devices"
             ,"--filter sensorTypes":"/projects/i7prjqnb2c4b6rob9xc2/devices?deviceTypes=temperature&deviceTypes=co2"
