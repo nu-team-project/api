@@ -1,10 +1,15 @@
 from typing import Annotated, Union
 from fastapi import FastAPI, Query
+from pydantic import BaseModel
 import datetime
-from dataRead import *
-from desc import *
+from api.dataRead import *
+from api.desc import *
+from api.emulateData import *
 
+class event(BaseModel):
+    event:dict
 
+myDataEmulate=dataEmulater()
 myDataRead=dataRead()
 app = FastAPI(title=Title["app"],description=Desc["app"],openapi_tags=tags_metadata)
 
@@ -88,3 +93,23 @@ async def event_history(project:str,device:str,eventTypes:Union[list[str],None]=
         endTime=datetime.datetime.strptime(endTime,timeFormat)
     eventData=myDataRead.getEvents(project_id=project,device_id=device,eventTypes=eventTypes,startTime=startTime,endTime=endTime)
     return {"events":eventData}
+
+
+# {
+#   "event": {
+#     "id": "emulate",
+#     "trigger": "schedule"
+#   }
+# }
+
+@app.post("/__space/v0/actions")
+async def emulate(body:dict):
+    # if body["event"]["id"]=="emulate" and body["event"]["trigger"]=="schedule":
+    myDataEmulate.emulateData()
+
+@app.get("/emulate")
+async def emulate2():
+    # if body["event"]["id"]=="emulate" and body["event"]["trigger"]=="schedule":
+    myDataEmulate.emulateData()
+    return {"message":"emulate"}
+

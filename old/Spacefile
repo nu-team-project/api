@@ -12,3 +12,9 @@ micros:
       - "/projects/*"
       - "/docs"
       - "/openapi.json"
+    actions:
+      - id: "emulate"
+        name: "Emulate"
+        description: "Emulates a new set of data in the database"
+        trigger: "schedule"
+        default_interval: "15 minutes"

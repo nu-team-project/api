@@ -12,12 +12,12 @@ The deployed version of the API is deployed on Deta Space
 
 ### Links to Deployed Version of API:
 
-- [Base](https://kgapi-2-k1528556.deta.app)
-- [Projects](https://kgapi-2-k1528556.deta.app/projects)
-- [Devices](https://kgapi-2-k1528556.deta.app/projects/i7prjqnb2c4b6rob9xc2/devices)
-- [Devices from group "North Wing"](https://kgapi-2-k1528556.deta.app/projects/i7prjqnb2c4b6rob9xc2/devices?labelFilters=group=North%20Wing)
-- [Single Device](https://kgapi-2-k1528556.deta.app/projects/i7prjqnb2c4b6rob9xc2/devices/rjc3imeidwhx459meiam)
-- [Device Events](https://kgapi-2-k1528556.deta.app/projects/i7prjqnb2c4b6rob9xc2/devices/rjc3imeidwhx459meiam/events)
+- [Base](http://20.26.242.249)
+- [Projects](http://20.26.242.249/projects)
+- [Devices](http://20.26.242.249/projects/i7prjqnb2c4b6rob9xc2/devices)
+- [Devices from group "North Wing"](http://20.26.242.249/projects/i7prjqnb2c4b6rob9xc2/devices?labelFilters=group=North%20Wing)
+- [Single Device](http://20.26.242.249/projects/i7prjqnb2c4b6rob9xc2/devices/rjc3imeidwhx459meiam)
+- [Device Events](http://20.26.242.249/projects/i7prjqnb2c4b6rob9xc2/devices/rjc3imeidwhx459meiam/events)
 
 
 ---

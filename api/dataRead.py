@@ -1,7 +1,7 @@
 import random
 import string
 import datetime
-from dbConnect import *
+from api.dbConnect import *
 
 class dataRead:
     def __init__(this):
@@ -140,6 +140,7 @@ class dataRead:
         rows=this.db.run_query(query)
         output=[]
         for each in rows:
+            
             timeFormat="%Y-%m-%dT%H:%M:%S.%fZ"
             if this.__DT1BetweenDT2andDT3(datetime.datetime.strptime(each[3],timeFormat),startTime,endTime):
                 if each[4] == "temperature":
@@ -246,7 +247,96 @@ class dataRead:
                     })
         return output
 
-    
+
+   
+        sql_getAllDevicesAndTypes="""
+        SELECT device_id, type
+        FROM devices
+        WHERE type IN ("temperature", "humidity", "co2", "ccon")
+        """
+        allDevicesAndTypes=this.db.run_query(sql_getAllDevicesAndTypes)
+        for each in allDevicesAndTypes:
+            this_device_id=each[0]
+            this_device_type=each[1]
+
+            #///////////////////[GET PREVIOUS EVENT VALUES]///////////////////
+            sql_getLatestEvents="""
+            SELECT event_id, device_id, value, datetime, event_type
+            FROM (
+            SELECT event_id, device_id, value, datetime, event_type
+            FROM events
+            WHERE device_id = {}
+            ORDER BY datetime DESC
+            )
+            GROUP BY event_type
+            """.format(this_device_id)
+            latestEvents=this.db.run_query(sql_getLatestEvents)
+            prev_value={}
+            for eachEvent in latestEvents:
+                event_type=eachEvent[4]
+                event_value=eachEvent[2]
+                if event_type == "temperature":
+                    prev_value["temperature"]=event_value
+                elif event_type == "humidity":
+                    prev_value["humidity"]=event_value
+                elif event_type == "co2":
+                    prev_value["co2"]=event_value
+                elif event_type == "batteryStatus":
+                    prev_value["batteryStatus"]=event_value
+                elif event_type == "connectionStatus":
+                    prev_value["connectionStatus"]=event_value
+                elif event_type == "networkStatus":
+                    prev_value["networkStatus"]=event_value
+                elif event_type == "touch":
+                    prev_value["touch"]=event_value
+                elif event_type == "ethernetStatus":
+                    prev_value["ethernetStatus"]=event_value
+                elif event_type == "cellularStatus":
+                    prev_value["cellularStatus"]=event_value
+
+            #///////////////////[EXTRACT IMPORTANT DATA FROM VALUES]///////////////////
+            prev_data={}
+            if this_device_type=="temperature":
+                prev_data["temperature"]=prev_value["temperature"]
+                prev_data["battery"]=prev_value["batteryStatus"]
+            elif this_device_type=="humidity":
+                prev_data["humidity"]=prev_value["humidity"].split(":")[-1]
+                prev_data["battery"]=prev_value["batteryStatus"]
+            elif this_device_type=="co2":
+                prev_data["co2"]=prev_value["co2"]
+                prev_data["battery"]=prev_value["batteryStatus"]
+            elif this_device_type=="ccon":
+                prev_data["networkStatus_signalStrength"]=prev_value["networkStatus"].split(",")[0].split(":")[1]
+                prev_data["networkStatus_rssi"]=prev_value["networkStatus"].split(",")[1].split(":")[1]
+                prev_data["cellularStatus_signalStrength"]=prev_value["cellularStatus"].split(",")[0].split(":")[1]
+            new_data=this.__genEmulatedData(prevData=prev_data,type=this_device_type)
+
+            #///////////////////[WRITE NEW VALUES TO DATABASE]///////////////////
+            datetimeFormat="%Y-%m-%dT%H:%M:%S.%fZ"
+            datetimeNow=datetime.datetime.strftime(datetime.datetime.now(),datetimeFormat)
+            sql_insert="INSERT INTO events (device_id, value, datetime, event_type) VALUES "
+            if this_device_type=="temperature":
+                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,new_data["temperature"],datetimeNow,"temperature"))
+                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,new_data["battery"],datetimeNow,"batteryStatus"))
+                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,"-",datetimeNow,"touch"))
+                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,prev_value["networkStatus"],datetimeNow,"networkStatus"))
+            elif this_device_type=="humidity":
+                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,new_data["humidity"],datetimeNow,"humidity"))
+                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,new_data["battery"],datetimeNow,"batteryStatus"))
+                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,"-",datetimeNow,"touch"))
+                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,prev_value["networkStatus"],datetimeNow,"networkStatus"))
+            elif this_device_type=="co2":
+                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,new_data["co2"],datetimeNow,"co2"))
+                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,new_data["battery"],datetimeNow,"batteryStatus"))
+                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,"-",datetimeNow,"touch"))
+                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,prev_value["networkStatus"],datetimeNow,"networkStatus"))
+            elif this_device_type=="ccon":
+                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,"-",datetimeNow,"touch"))
+                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,prev_value["ethernetStatus"],datetimeNow,"ethernetStatus"))
+                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,prev_value["connectionStatus"],datetimeNow,"connectionStatus"))
+                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,prev_value["cellularStatus"],datetimeNow,"cellularStatus"))
+        return
+
     def __getProjectIdFromName(this,name:str):
         return name.rsplit('/')[2]
 
