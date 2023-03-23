@@ -1,10 +1,12 @@
 from typing import Annotated, Union
 from fastapi import FastAPI, Query
+import httpx
 from pydantic import BaseModel
 import datetime
 from api.dataRead import *
 from api.desc import *
 from api.emulateData import *
+import asyncio
 
 class event(BaseModel):
     event:dict
@@ -12,8 +14,6 @@ class event(BaseModel):
 myDataEmulate=dataEmulater()
 myDataRead=dataRead()
 app = FastAPI(title=Title["app"],description=Desc["app"],openapi_tags=tags_metadata)
-
-
 
 
 @app.get("/",tags=["default"])
@@ -72,7 +72,7 @@ async def get_a_single_project(project):
 
 @app.get("/projects/{project}/devices",tags=["Devices & Labels"],description=Desc["deviceList"])
 async def list_sensors_and_cloud_devices(project:str,deviceIds:Union[list[str],None]=Query(default=None),deviceTypes:Union[list[str],None]=Query(default=None),labelFilters:Union[list[str],None]=Query(default=None),orderBy:str=None,query:str=None,productNumbers:Union[list[str],None]=Query(default=None),pageSize:int=None,pageToken:str=None):
-    deviceData=myDataRead.getDevices(project_id=project,deviceIds=deviceIds,deviceTypes=deviceTypes,labelFilters=labelFilters)
+    deviceData= await myDataRead.getDevices(project_id=project,deviceIds=deviceIds,deviceTypes=deviceTypes,labelFilters=labelFilters)
     return {"devices":deviceData}
 
 @app.get("/projects/{project}/devices/{device}",tags=["Devices & Labels"],description=Desc["device"])
@@ -113,3 +113,8 @@ async def emulate2():
     myDataEmulate.emulateData()
     return {"message":"emulate"}
 
+
+@app.get("/esp32")
+async def esp32():
+    output=await myDataRead.getEspDevice()
+    return output

@@ -2,12 +2,15 @@ import random
 import string
 import datetime
 from api.dbConnect import *
+import httpx
+import asyncio
 
 class dataRead:
     def __init__(this):
         this.db=dbConnect()
+        this.timeFormat="%Y-%m-%dT%H:%M:%S.%fZ"
 
-    def getDevices(this,project_id:string=None,deviceTypes:list[str]=None,deviceIds:list[str]=None,labelFilters:list[str]=None):
+    async def getDevices(this,project_id:string=None,deviceTypes:list[str]=None,deviceIds:list[str]=None,labelFilters:list[str]=None):
         if project_id=="i7prjqnb2c4b6rob9xc2":
             sql_where=""
             if deviceTypes is not None:
@@ -85,6 +88,18 @@ class dataRead:
                     "events":this.__oneDeviceLastEvents(project_id=project_id,device_id=each[0],type=each[1]),
                     "productNumber":each[4]
                 })
+            
+            if labelFilters==None or "esp32" in labelFilters:
+                esp32jsonFull= await this.getEspDevice()
+                esp32List=[]
+                if deviceTypes==None or "temperature" in deviceTypes:
+                    esp32List.append(esp32jsonFull["temperature"])
+                if deviceTypes==None or "humidity" in deviceTypes:
+                    esp32List.append(esp32jsonFull["humidity"])
+                if deviceTypes==None or "co2" in deviceTypes:
+                    esp32List.append(esp32jsonFull["co2"])
+                output=esp32List+output
+
             return output
             
     def __DT1BetweenDT2andDT3(this,dateTime1:datetime.datetime,dateTime2:datetime.datetime,dateTime3:datetime.datetime):
@@ -192,9 +207,7 @@ class dataRead:
         rows=this.db.run_query(query)
         output=[]
         for each in rows:
-            
-            timeFormat="%Y-%m-%dT%H:%M:%S.%fZ"
-            if this.__DT1BetweenDT2andDT3(datetime.datetime.strptime(each[3],timeFormat),startTime,endTime):
+            if this.__DT1BetweenDT2andDT3(datetime.datetime.strptime(each[3],this.timeFormat),startTime,endTime):
                 if each[4] == "temperature":
                     output.append({
                         "temperature":{
@@ -298,6 +311,81 @@ class dataRead:
                         }
                     })
         return output
+
+    async def getEspDevice(this):
+        link="https://api.thingspeak.com/channels/2048224/fields/1.json?api_key=WNBPHCR9UFKPAV6N&results=2"
+        async with httpx.AsyncClient() as client:
+            response = await client.get(link)
+            esp32=response.json()
+        # {
+        #     "channel":{
+        #         "id":2048224,
+        #         "name":"esp32",
+        #         "latitude":"0.0",
+        #         "longitude":"0.0",
+        #         "field1":"temp",
+        #         "field2":"humidity",
+        #         "field3":"eco2",
+        #         "created_at":"2023-02-28T09:45:47Z",
+        #         "updated_at":"2023-03-16T03:18:15Z",
+        #         "last_entry_id":1078
+        #     },
+        #     "feeds":[
+        #         {
+        #             "created_at":"2023-03-16T12:21:41Z",
+        #             "entry_id":1077,
+        #             "field1":"25.27561"
+        #         },
+        #         {
+        #             "created_at":"2023-03-16T12:22:12Z",
+        #             "entry_id":1078,
+        #             "field1":"25.29774"
+        #         }
+        #     ]
+        # }
+        latest_event=esp32["feeds"][-1]
+        datetimeNow=datetime.datetime.strftime(datetime.datetime.now(),this.timeFormat)
+        show=1
+        esp32Temperature={
+            "name": "projects/i7prjqnb2c4b6rob9xc2/devices/esp32temperature",
+            "type": "temperature",
+            "labels": {
+                "group": "esp32",
+                "show": show
+            },
+            "events": {
+                "temperature": {
+                    "value": latest_event["field1"],
+                    "updateTime": latest_event["created_at"]
+                },
+                "networkStatus": {
+                    "signalStrength": "100",
+                    "rssi": "0",
+                    "updateTime": datetimeNow,
+                    "cloudConnectors": [
+                    {
+                        "id": "esp32",
+                        "signalStrength": "100",
+                        "rssi": "0"
+                    }
+                    ],
+                    "transmissionMode": "LOW_POWER_STANDARD_MODE"
+                },
+                "batteryStatus": {
+                    "percentage": "100",
+                    "updateTime": datetimeNow
+                },
+                "touch": {
+                    "updateTime": datetimeNow
+                }
+            },
+            "productNumber": esp32["channel"]["id"]
+        }
+        result={}
+        result["temperature"]=esp32Temperature
+        result["humidity"]={"name": "projects/i7prjqnb2c4b6rob9xc2/devices/esp32humidity"}
+        result["co2"]={"name": "projects/i7prjqnb2c4b6rob9xc2/devices/esp32co2"}
+        return result
 
     def __getProjectIdFromName(this,name:str):
         return name.rsplit('/')[2]

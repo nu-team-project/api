@@ -1,0 +1,2 @@
+dictString='{"channel":{"id":2048224,"name":"esp32","latitude":"0.0","longitude":"0.0","field1":"temp","field2":"humidity","field3":"eco2","created_at":"2023-02-28T09:45:47Z","updated_at":"2023-03-16T03:18:15Z","last_entry_id":1078},"feeds":[{"created_at":"2023-03-16T12:21:41Z","entry_id":1077,"field1":"25.27561"},{"created_at":"2023-03-16T12:22:12Z","entry_id":1078,"field1":"25.29774"}]}'
+print(dict(dictString))
