@@ -94,27 +94,79 @@ class dataRead:
             return False
 
     def __oneDeviceLastEvents(this,project_id:str,device_id:str,type:str):
+        sql_latestEvents="""
+        SELECT event_id, device_name, value, datetime, event_type
+        FROM (
+        SELECT event_id, device_name, value, datetime, event_type
+        FROM events
+        INNER JOIN devices
+        ON events.device_id = devices.device_id
+        WHERE device_name = "{}"
+        ORDER BY datetime DESC
+        )
+        GROUP BY event_type
+        ORDER BY event_type
+        """.format(device_id)
+        rows=this.db.run_query(sql_latestEvents)
         output={}
         if type == "temperature":
-            output["temperature"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["temperature"])[-1]["temperature"]
-            output["networkStatus"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["networkStatus"])[-1]["networkStatus"]
-            output["batteryStatus"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["batteryStatus"])[-1]["batteryStatus"]
-            output["touch"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["touch"])[-1]["touch"]
+            output["temperature"]={"value":rows[2][2],"updateTime":rows[2][3]}
+            networkStatus_value=rows[1][2].split(",")
+            signalStrength=networkStatus_value[0].split(":")[1]
+            rssi=networkStatus_value[1].split(":")[1]
+            cc_id=networkStatus_value[2].split(":")[1]
+            cc_signalStrength=networkStatus_value[3].split(":")[1]
+            cc_rssi=networkStatus_value[4].split(":")[1]
+            transmissionMode=networkStatus_value[5].split(":")[1]
+            output["networkStatus"]={"signalStrength": signalStrength,"rssi": rssi,"updateTime": rows[1][3],"cloudConnectors": [{"id": cc_id,"signalStrength": cc_signalStrength,"rssi": cc_rssi,}],"transmissionMode": transmissionMode}
+            output["batteryStatus"]={"percentage": rows[0][2],"updateTime": rows[0][3]} 
+            output["touch"]={"updateTime": rows[3][3]}
         elif type == "humidity":
-            output["humidity"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["humidity"])[-1]["humidity"]
-            output["networkStatus"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["networkStatus"])[-1]["networkStatus"]
-            output["batteryStatus"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["batteryStatus"])[-1]["batteryStatus"]
-            output["touch"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["touch"])[-1]["touch"]
+            humidity_value=rows[1][2].split(",")
+            temperature=humidity_value[0].split(":")[1]
+            relativeHumidity=humidity_value[1].split(":")[1]
+            output["humidity"]={"temperature": temperature,"relativeHumidity":relativeHumidity,"updateTime":rows[1][3]}
+            networkStatus_value=rows[2][2].split(",")
+            signalStrength=networkStatus_value[0].split(":")[1]
+            rssi=networkStatus_value[1].split(":")[1]
+            cc_id=networkStatus_value[2].split(":")[1]
+            cc_signalStrength=networkStatus_value[3].split(":")[1]
+            cc_rssi=networkStatus_value[4].split(":")[1]
+            transmissionMode=networkStatus_value[5].split(":")[1]
+            output["networkStatus"]={"signalStrength": signalStrength,"rssi": rssi,"updateTime": rows[2][3],"cloudConnectors": [{"id": cc_id,"signalStrength": cc_signalStrength,"rssi": cc_rssi,}],"transmissionMode": transmissionMode}
+            output["batteryStatus"]={"percentage": rows[0][2],"updateTime": rows[0][3]}
+            output["touch"]={"updateTime": rows[3][3]}
         elif type == "co2":
-            output["co2"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["co2"])[-1]["co2"]
-            output["networkStatus"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["networkStatus"])[-1]["networkStatus"]
-            output["batteryStatus"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["batteryStatus"])[-1]["batteryStatus"]
-            output["touch"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["touch"])[-1]["touch"]
+            output["co2"]={"ppm":rows[1][2],"updateTime":rows[1][3]}    
+            networkStatus_value=rows[2][2].split(",")
+            signalStrength=networkStatus_value[0].split(":")[1]
+            rssi=networkStatus_value[1].split(":")[1]
+            cc_id=networkStatus_value[2].split(":")[1]
+            cc_signalStrength=networkStatus_value[3].split(":")[1]
+            cc_rssi=networkStatus_value[4].split(":")[1]
+            transmissionMode=networkStatus_value[5].split(":")[1]
+            output["networkStatus"]={"signalStrength": signalStrength,"rssi": rssi,"updateTime": rows[2][3],"cloudConnectors": [{"id": cc_id,"signalStrength": cc_signalStrength,"rssi": cc_rssi,}],"transmissionMode": transmissionMode}
+            output["batteryStatus"]={"percentage": rows[0][2],"updateTime": rows[0][3]}
+            output["touch"]={"updateTime": rows[3][3]}
         elif type == "ccon":
-            output["connectionStatus"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["connectionStatus"])[-1]["connectionStatus"]
-            output["ethernetStatus"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["ethernetStatus"])[-1]["ethernetStatus"]
-            output["cellularStatus"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["cellularStatus"])[-1]["cellularStatus"]
-            output["touch"]=this.getEvents(project_id=project_id,device_id=device_id,eventTypes=["touch"])[-1]["touch"]
+            connection_value=rows[1][2].split(",")
+            connection=connection_value[0].split(":")[1]
+            available=connection_value[1].split(":")[1].split("[")[1].split("]")[0].split(";")
+            output["connectionStatus"]={ "connection": connection,"available": available,"updateTime": rows[1][3]}
+            ethernet_value=rows[2][2].split(",")
+            macAddress=ethernet_value[0].split(":",1)[1]
+            ipAddress=ethernet_value[1].split(":",1)[1]
+            errors=ethernet_value[2].split(":",1)[1].split("[")[1].split("]")[0].split(";")
+            errorCode=errors[0].split(":",1)[1]
+            errorMessage=errors[1].split(":",1)[1]
+            output["ethernetStatus"]={"macAddress":macAddress,"ipAddress":ipAddress,"errors":[{"code":errorCode,"message":errorMessage},],"updateTime":rows[2][3]}
+            cellular_value=rows[0][2].split(",")
+            signalStrength=cellular_value[0].split(":")[1]
+            errors=cellular_value[1].split(":",1)[1].split("[")[1].split("]")[0].split(";")
+            errorCode=errors[0].split(":",1)[1]
+            errorMessage=errors[1].split(":",1)[1]
+            output["cellularStatus"]={"signalStrength": signalStrength,"errors":[{"code": errorCode, "message": errorMessage},],"updateTime":rows[0][3],}
+            output["touch"]={"updateTime": rows[3][3]}
         return output
 
     def getEvents(this,project_id:string=None,device_id:string=None,eventTypes:list[str]=None,startTime:datetime.datetime=None,endTime:datetime.datetime=None,pageSize:int=None):
@@ -246,96 +298,6 @@ class dataRead:
                         }
                     })
         return output
-
-
-   
-        sql_getAllDevicesAndTypes="""
-        SELECT device_id, type
-        FROM devices
-        WHERE type IN ("temperature", "humidity", "co2", "ccon")
-        """
-        allDevicesAndTypes=this.db.run_query(sql_getAllDevicesAndTypes)
-        for each in allDevicesAndTypes:
-            this_device_id=each[0]
-            this_device_type=each[1]
-
-            #///////////////////[GET PREVIOUS EVENT VALUES]///////////////////
-            sql_getLatestEvents="""
-            SELECT event_id, device_id, value, datetime, event_type
-            FROM (
-            SELECT event_id, device_id, value, datetime, event_type
-            FROM events
-            WHERE device_id = {}
-            ORDER BY datetime DESC
-            )
-            GROUP BY event_type
-            """.format(this_device_id)
-            latestEvents=this.db.run_query(sql_getLatestEvents)
-            prev_value={}
-            for eachEvent in latestEvents:
-                event_type=eachEvent[4]
-                event_value=eachEvent[2]
-                if event_type == "temperature":
-                    prev_value["temperature"]=event_value
-                elif event_type == "humidity":
-                    prev_value["humidity"]=event_value
-                elif event_type == "co2":
-                    prev_value["co2"]=event_value
-                elif event_type == "batteryStatus":
-                    prev_value["batteryStatus"]=event_value
-                elif event_type == "connectionStatus":
-                    prev_value["connectionStatus"]=event_value
-                elif event_type == "networkStatus":
-                    prev_value["networkStatus"]=event_value
-                elif event_type == "touch":
-                    prev_value["touch"]=event_value
-                elif event_type == "ethernetStatus":
-                    prev_value["ethernetStatus"]=event_value
-                elif event_type == "cellularStatus":
-                    prev_value["cellularStatus"]=event_value
-
-            #///////////////////[EXTRACT IMPORTANT DATA FROM VALUES]///////////////////
-            prev_data={}
-            if this_device_type=="temperature":
-                prev_data["temperature"]=prev_value["temperature"]
-                prev_data["battery"]=prev_value["batteryStatus"]
-            elif this_device_type=="humidity":
-                prev_data["humidity"]=prev_value["humidity"].split(":")[-1]
-                prev_data["battery"]=prev_value["batteryStatus"]
-            elif this_device_type=="co2":
-                prev_data["co2"]=prev_value["co2"]
-                prev_data["battery"]=prev_value["batteryStatus"]
-            elif this_device_type=="ccon":
-                prev_data["networkStatus_signalStrength"]=prev_value["networkStatus"].split(",")[0].split(":")[1]
-                prev_data["networkStatus_rssi"]=prev_value["networkStatus"].split(",")[1].split(":")[1]
-                prev_data["cellularStatus_signalStrength"]=prev_value["cellularStatus"].split(",")[0].split(":")[1]
-            new_data=this.__genEmulatedData(prevData=prev_data,type=this_device_type)
-
-            #///////////////////[WRITE NEW VALUES TO DATABASE]///////////////////
-            datetimeFormat="%Y-%m-%dT%H:%M:%S.%fZ"
-            datetimeNow=datetime.datetime.strftime(datetime.datetime.now(),datetimeFormat)
-            sql_insert="INSERT INTO events (device_id, value, datetime, event_type) VALUES "
-            if this_device_type=="temperature":
-                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,new_data["temperature"],datetimeNow,"temperature"))
-                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,new_data["battery"],datetimeNow,"batteryStatus"))
-                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,"-",datetimeNow,"touch"))
-                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,prev_value["networkStatus"],datetimeNow,"networkStatus"))
-            elif this_device_type=="humidity":
-                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,new_data["humidity"],datetimeNow,"humidity"))
-                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,new_data["battery"],datetimeNow,"batteryStatus"))
-                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,"-",datetimeNow,"touch"))
-                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,prev_value["networkStatus"],datetimeNow,"networkStatus"))
-            elif this_device_type=="co2":
-                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,new_data["co2"],datetimeNow,"co2"))
-                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,new_data["battery"],datetimeNow,"batteryStatus"))
-                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,"-",datetimeNow,"touch"))
-                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,prev_value["networkStatus"],datetimeNow,"networkStatus"))
-            elif this_device_type=="ccon":
-                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,"-",datetimeNow,"touch"))
-                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,prev_value["ethernetStatus"],datetimeNow,"ethernetStatus"))
-                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,prev_value["connectionStatus"],datetimeNow,"connectionStatus"))
-                this.db.run_query(sql_insert+"({},{},{},{})".format(this_device_id,prev_value["cellularStatus"],datetimeNow,"cellularStatus"))
-        return
 
     def __getProjectIdFromName(this,name:str):
         return name.rsplit('/')[2]
