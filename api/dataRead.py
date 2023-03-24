@@ -89,14 +89,14 @@ class dataRead:
                     "productNumber":each[4]
                 })
             
-            if labelFilters==None or "esp32" in labelFilters:
-                esp32jsonFull= await this.getEspDevice()
+            if labelFilters==None or "group=esp32" in labelFilters:
+                esp32jsonFull=await this.getEspDevice()
                 esp32List=[]
-                if deviceTypes==None or "temperature" in deviceTypes:
+                if (deviceTypes==None or "temperature" in deviceTypes) and (deviceIds==None or "esp32temperature" in deviceIds):
                     esp32List.append(esp32jsonFull["temperature"])
-                if deviceTypes==None or "humidity" in deviceTypes:
+                if deviceTypes==None or "humidity" in deviceTypes and (deviceIds==None or "esp32humidity" in deviceIds):
                     esp32List.append(esp32jsonFull["humidity"])
-                if deviceTypes==None or "co2" in deviceTypes:
+                if deviceTypes==None or "co2" in deviceTypes and (deviceIds==None or "esp32co2" in deviceIds):
                     esp32List.append(esp32jsonFull["co2"])
                 output=esp32List+output
 
@@ -313,10 +313,17 @@ class dataRead:
         return output
 
     async def getEspDevice(this):
-        link="https://api.thingspeak.com/channels/2048224/fields/1.json?api_key=WNBPHCR9UFKPAV6N&results=2"
+        tempLink="https://api.thingspeak.com/channels/2048224/fields/1.json?api_key=WNBPHCR9UFKPAV6N"
+        humidityLink="https://api.thingspeak.com/channels/2048224/fields/2.json?api_key=WNBPHCR9UFKPAV6N"
+        co2Link="https://api.thingspeak.com/channels/2048224/fields/3.json?api_key=WNBPHCR9UFKPAV6N"
         async with httpx.AsyncClient() as client:
-            response = await client.get(link)
-            esp32=response.json()
+            response_temp = await client.get(tempLink)
+            response_humidity = await client.get(humidityLink)
+            response_co2 = await client.get(co2Link)
+            esp32={}
+            esp32["temperature"]=response_temp.json()
+            esp32["humidity"]=response_humidity.json()
+            esp32["co2"]=response_co2.json()
         # {
         #     "channel":{
         #         "id":2048224,
@@ -343,7 +350,9 @@ class dataRead:
         #         }
         #     ]
         # }
-        latest_event=esp32["feeds"][-1]
+        latest_temperature_event=esp32["temperature"]["feeds"][-1]
+        latest_humidity_event=esp32["humidity"]["feeds"][-1]
+        latest_co2_event=esp32["co2"]["feeds"][-1]
         datetimeNow=datetime.datetime.strftime(datetime.datetime.now(),this.timeFormat)
         show=1
         esp32Temperature={
@@ -355,8 +364,8 @@ class dataRead:
             },
             "events": {
                 "temperature": {
-                    "value": latest_event["field1"],
-                    "updateTime": latest_event["created_at"]
+                    "value": latest_temperature_event["field1"],
+                    "updateTime": latest_temperature_event["created_at"]
                 },
                 "networkStatus": {
                     "signalStrength": "100",
@@ -379,12 +388,83 @@ class dataRead:
                     "updateTime": datetimeNow
                 }
             },
-            "productNumber": esp32["channel"]["id"]
+            "productNumber": esp32["temperature"]["channel"]["id"]+"1"
+        }
+        esp32Humidity={
+            "name": "projects/i7prjqnb2c4b6rob9xc2/devices/esp32humidity",
+            "type": "humidity",
+            "labels": {
+                "group": "esp32",
+                "show": show
+            },
+            "events": {
+                "humidity": {
+                    "temperature": latest_temperature_event["field1"],
+                    "relativeHumidity": latest_humidity_event["field2"],
+                    "updateTime": latest_humidity_event["created_at"]
+                },
+                "networkStatus": {
+                    "signalStrength": "100",
+                    "rssi": "0",
+                    "updateTime": datetimeNow,
+                    "cloudConnectors": [
+                    {
+                        "id": "esp32",
+                        "signalStrength": "100",
+                        "rssi": "0"
+                    }
+                    ],
+                    "transmissionMode": "LOW_POWER_STANDARD_MODE"
+                },
+                "batteryStatus": {
+                    "percentage": "100",
+                    "updateTime": datetimeNow
+                },
+                "touch": {
+                    "updateTime": datetimeNow
+                }
+            },
+            "productNumber": esp32["humidity"]["channel"]["id"]+"2"
+        }
+        esp32Co2={
+            "name": "projects/i7prjqnb2c4b6rob9xc2/devices/esp32co2",
+            "type": "co2",
+            "labels": {
+                "group": "esp32",
+                "show": show
+            },
+            "events": {
+                "co2": {
+                    "ppm": latest_co2_event["field3"],
+                    "updateTime": latest_co2_event["created_at"]
+                },
+                "networkStatus": {
+                    "signalStrength": "100",
+                    "rssi": "0",
+                    "updateTime": datetimeNow,
+                    "cloudConnectors": [
+                    {
+                        "id": "esp32",
+                        "signalStrength": "100",
+                        "rssi": "0"
+                    }
+                    ],
+                    "transmissionMode": "LOW_POWER_STANDARD_MODE"
+                },
+                "batteryStatus": {
+                    "percentage": "100",
+                    "updateTime": datetimeNow
+                },
+                "touch": {
+                    "updateTime": datetimeNow
+                }
+            },
+            "productNumber": esp32["co2"]["channel"]["id"]+"3"
         }
         result={}
         result["temperature"]=esp32Temperature
-        result["humidity"]={"name": "projects/i7prjqnb2c4b6rob9xc2/devices/esp32humidity"}
-        result["co2"]={"name": "projects/i7prjqnb2c4b6rob9xc2/devices/esp32co2"}
+        result["humidity"]=esp32Humidity
+        result["co2"]=esp32Co2
         return result
 
     def __getProjectIdFromName(this,name:str):

@@ -77,7 +77,7 @@ async def list_sensors_and_cloud_devices(project:str,deviceIds:Union[list[str],N
 
 @app.get("/projects/{project}/devices/{device}",tags=["Devices & Labels"],description=Desc["device"])
 async def get_a_single_device(project:str,device:str):
-    output = myDataRead.getDevices(project_id=project,deviceIds=[device])
+    output = await myDataRead.getDevices(project_id=project,deviceIds=[device])
     return output
 
 @app.get("/projects/{project}/devices/{device}/events",tags=["Event History"],description=Desc["eventHistory"])
