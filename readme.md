@@ -39,9 +39,9 @@ V2:
 
 ---
 
-# Endpoints
+# Disruptive Systems Endpoints
 
-## <center>DS Projects</center>
+## DS Projects
 
 **List Projects** - `/projects`
 - List all the projects available to be used
@@ -60,7 +60,7 @@ V2:
 
 ---
 
-## <center>DS Devices</center>
+## DS Devices
 
 **List Devices** - `/projects/{project}/devices`
 - Show a list of all devices in the project. The parameters `deviceIds`, `deviceTypes`, and `labelFilters` can be used to filter the list, these all can be combined to achieve further filtering.
@@ -84,7 +84,7 @@ V2:
 
 ---
 
-## <center>DS Events</center>
+## DS Events
 
 **List Device Events** - `/projects/{project}/devices/{device}`
 - List all events of one device with id of {device}. Uses of datetime in this endpoint are formatted into strings using the following format: "`yyyy`-`mm`-`dd`T`HH`:`MM`:`SS`Z"
@@ -105,7 +105,9 @@ V2:
 
 ---
 
-## <center>Alerts</center>
+# Custom Endpoints
+
+## Alerts
 
 **Get Alerts** - `/alerts`
 - Retrieves alerts from database
@@ -151,14 +153,14 @@ V2:
 
 ---
 
-## <center>Emulate</center>
+## Emulate
 
 **Emulate** - `/emulate`
 - Runs the script to create a full set of emulated values for all devices stored in the database. This does not take parameters.
 
 ---
 
-## <center>Change Devices</center>
+## Change Devices
 
 **Create Device** - `/devices/create`
 - Create new devices in the database.
