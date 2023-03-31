@@ -107,6 +107,13 @@ V2:
 
 # Custom Endpoints
 
+## Emulate
+
+**Emulate** - `/emulate`
+- Runs the script to create a full set of emulated values for all devices stored in the database. This does not take parameters.
+
+---
+
 ## Alerts
 
 **Get Alerts** - `/alerts`
@@ -150,13 +157,6 @@ V2:
 | Paramater Name | Datatype | Required / Default | Description |
 |---|---|---|---|
 | `alert_id` | _int_ | _required_ | id of the alert to be deleted, must exist in the database or the error `"unrecognised alert_id {}"` will be returned |
-
----
-
-## Emulate
-
-**Emulate** - `/emulate`
-- Runs the script to create a full set of emulated values for all devices stored in the database. This does not take parameters.
 
 ---
 
