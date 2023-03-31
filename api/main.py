@@ -3,20 +3,19 @@ from fastapi import FastAPI, Query
 import httpx
 from pydantic import BaseModel
 import datetime
-from api.dataRead import *
 from api.desc import *
+from api.dataRead import *
 from api.emulateData import *
-import asyncio
+from api.alertManager import *
 
-class event(BaseModel):
-    event:dict
 
 myDataEmulate=dataEmulater()
 myDataRead=dataRead()
+myAlerts=alertManager()
 app = FastAPI(title=Title["app"],description=Desc["app"],openapi_tags=tags_metadata)
 
 
-@app.get("/",tags=["default"])
+@app.get("/",tags=["proto"])
 async def root():
     host="http://127.0.0.1:8000"
     return {
@@ -33,14 +32,28 @@ async def root():
         }
     }
 
-@app.get("/test")
+@app.get("/test",tags=["proto"])
 async def test():
     return {
         "message":"welcome to the test endpoint"
     }
 
+@app.get("/emulate",tags=["proto"],description=Desc["emulate"])
+async def emulate():
+    myDataEmulate.emulateData()
+    return {"message":"emulation complete"}
+
+@app.get("/esp32",tags=["proto"],description=Desc["esp32"])
+async def esp32():
+    output=await myDataRead.getEspDevice()
+    return output
+
+
+
+
+
 @app.get("/projects",tags=["Organizations & Projects"],description=Desc["projectList"])
-async def list_projects(query:str="",pageSize:int=10,pageToken:int=0):
+async def list_projects(): #unsused-params: query:str="",pageSize:int=10,pageToken:int=0 
     return {"projects":[
                 {
                     "name":"projects/i7prjqnb2c4b6rob9xc2",
@@ -71,7 +84,7 @@ async def get_a_single_project(project):
          return {"message":"project not found"}
 
 @app.get("/projects/{project}/devices",tags=["Devices & Labels"],description=Desc["deviceList"])
-async def list_sensors_and_cloud_devices(project:str,deviceIds:Union[list[str],None]=Query(default=None),deviceTypes:Union[list[str],None]=Query(default=None),labelFilters:Union[list[str],None]=Query(default=None),orderBy:str=None,query:str=None,productNumbers:Union[list[str],None]=Query(default=None),pageSize:int=None,pageToken:str=None):
+async def list_sensors_and_cloud_devices(project:str,deviceIds:Union[list[str],None]=Query(default=None),deviceTypes:Union[list[str],None]=Query(default=None),labelFilters:Union[list[str],None]=Query(default=None)): #unused-params: orderBy:str=None,query:str=None,productNumbers:Union[list[str],None]=Query(default=None),pageSize:int=None,pageToken:str=None
     deviceData= await myDataRead.getDevices(project_id=project,deviceIds=deviceIds,deviceTypes=deviceTypes,labelFilters=labelFilters)
     return {"devices":deviceData}
 
@@ -81,7 +94,7 @@ async def get_a_single_device(project:str,device:str):
     return output
 
 @app.get("/projects/{project}/devices/{device}/events",tags=["Event History"],description=Desc["eventHistory"])
-async def event_history(project:str,device:str,eventTypes:Union[list[str],None]=Query(default=None),startTime:str=None,endTime:str=None,pageSize:int=100):
+async def event_history(project:str,device:str,eventTypes:Union[list[str],None]=Query(default=None),startTime:str=None,endTime:str=None): #unused-params: pageSize:int=100
     timeFormat="%Y-%m-%dT%H:%M:%S.%fZ"
     if startTime is None:
         startTime=datetime.datetime.now()-datetime.timedelta(hours = 24)
@@ -91,30 +104,30 @@ async def event_history(project:str,device:str,eventTypes:Union[list[str],None]=
         endTime=datetime.datetime.now()
     else:
         endTime=datetime.datetime.strptime(endTime,timeFormat)
-    eventData=myDataRead.getEvents(project_id=project,device_id=device,eventTypes=eventTypes,startTime=startTime,endTime=endTime)
+    eventData=await myDataRead.getEvents(project_id=project,device_id=device,eventTypes=eventTypes,startTime=startTime,endTime=endTime)
     return {"events":eventData}
 
 
-# {
-#   "event": {
-#     "id": "emulate",
-#     "trigger": "schedule"
-#   }
-# }
-
-@app.post("/__space/v0/actions")
-async def emulate(body:dict):
-    # if body["event"]["id"]=="emulate" and body["event"]["trigger"]=="schedule":
-    myDataEmulate.emulateData()
-
-@app.get("/emulate")
-async def emulate2():
-    # if body["event"]["id"]=="emulate" and body["event"]["trigger"]=="schedule":
-    myDataEmulate.emulateData()
-    return {"message":"emulate"}
 
 
-@app.get("/esp32")
-async def esp32():
-    output=await myDataRead.getEspDevice()
+
+
+@app.get("/alerts",tags=["Custom"],description=Desc["getAlerts"]) #this will require auth eventually
+async def alerts(employee_id:int=None,type:str=None,event_id:int=None): 
+    output=myAlerts.getAlerts(employee_id=employee_id,type=type,event_id=event_id)
+    return output
+
+@app.get("/alerts/create",tags=["Custom"],description=Desc["createAlerts"]) #this will require auth eventually
+async def create_alerts(employee_id:int,device_name:str,threshold:float,max:int): 
+    output=myAlerts.createAlerts(employee_id,device_name,threshold,max)
+    return output
+
+@app.get("/alerts/update/{alert_id}",tags=["Custom"],description=Desc["updateAlerts"]) #this will require auth eventually
+async def update_alerts(alert_id:int,employee_id:int=None,device_id:int=None,threshold:float=None,max:int=None): 
+    output=myAlerts.updateAlerts(alert_id=alert_id,employee_id=employee_id,device_id=device_id,threshold=threshold,max=max)
+    return output
+
+@app.get("/alerts/remove",tags=["Custom"],description=Desc["removeAlerts"]) #this will require auth eventually
+async def remove_alerts(alert_id:int): 
+    output=myAlerts.removeAlerts(alert_id=alert_id)
     return output

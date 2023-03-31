@@ -3,12 +3,19 @@ import string
 import datetime
 from api.dbConnect import *
 import httpx
-import asyncio
 
 class dataRead:
     def __init__(this):
         this.db=dbConnect()
         this.timeFormat="%Y-%m-%dT%H:%M:%S.%fZ"
+        this.espTemperatureId="esp32temperature"
+        this.espHumidityId="esp32humidity"
+        this.espCo2Id="esp32co2"
+        this.espLinks={
+            "temperature":"https://api.thingspeak.com/channels/2048224/fields/1.json?api_key=WNBPHCR9UFKPAV6N",
+            "humidity":"https://api.thingspeak.com/channels/2048224/fields/2.json?api_key=WNBPHCR9UFKPAV6N",
+            "co2":"https://api.thingspeak.com/channels/2048224/fields/3.json?api_key=WNBPHCR9UFKPAV6N"
+        }
 
     async def getDevices(this,project_id:string=None,deviceTypes:list[str]=None,deviceIds:list[str]=None,labelFilters:list[str]=None):
         if project_id=="i7prjqnb2c4b6rob9xc2":
@@ -92,14 +99,13 @@ class dataRead:
             if labelFilters==None or "group=esp32" in labelFilters:
                 esp32jsonFull=await this.getEspDevice()
                 esp32List=[]
-                if (deviceTypes==None or "temperature" in deviceTypes) and (deviceIds==None or "esp32temperature" in deviceIds):
+                if (deviceTypes==None or "temperature" in deviceTypes) and (deviceIds==None or this.espTemperatureId in deviceIds):
                     esp32List.append(esp32jsonFull["temperature"])
-                if deviceTypes==None or "humidity" in deviceTypes and (deviceIds==None or "esp32humidity" in deviceIds):
+                if (deviceTypes==None or "humidity" in deviceTypes) and (deviceIds==None or this.espHumidityId in deviceIds):
                     esp32List.append(esp32jsonFull["humidity"])
-                if deviceTypes==None or "co2" in deviceTypes and (deviceIds==None or "esp32co2" in deviceIds):
+                if (deviceTypes==None or "co2" in deviceTypes) and (deviceIds==None or this.espCo2Id in deviceIds):
                     esp32List.append(esp32jsonFull["co2"])
                 output=esp32List+output
-
             return output
             
     def __DT1BetweenDT2andDT3(this,dateTime1:datetime.datetime,dateTime2:datetime.datetime,dateTime3:datetime.datetime):
@@ -184,179 +190,250 @@ class dataRead:
             output["touch"]={"updateTime": rows[3][3]}
         return output
 
-    def getEvents(this,project_id:string=None,device_id:string=None,eventTypes:list[str]=None,startTime:datetime.datetime=None,endTime:datetime.datetime=None,pageSize:int=None):
+    async def getEvents(this,project_id:string=None,device_id:string=None,eventTypes:list[str]=None,startTime:datetime.datetime=None,endTime:datetime.datetime=None,pageSize:int=None):
         if startTime is None:
             startTime=datetime.datetime.now()-datetime.timedelta(hours = 24)
         if endTime is None:
             endTime=datetime.datetime.now()
-        query="""
-        SELECT event_id, device_name, value, datetime, event_type
-        FROM events
-        INNER JOIN devices
-        ON events.device_id = devices.device_id
-        """
-        sql_where='WHERE device_name = "'+device_id+'"'
-        if eventTypes is not None:
-            sql_where+=" AND events.event_type IN ("
-            for i in range(len(eventTypes)):
-                if i!=0:
-                    sql_where+=","
-                sql_where+='"'+eventTypes[i]+'"'
-            sql_where+=")"
-        query+=sql_where
-        rows=this.db.run_query(query)
-        output=[]
-        for each in rows:
-            if this.__DT1BetweenDT2andDT3(datetime.datetime.strptime(each[3],this.timeFormat),startTime,endTime):
-                if each[4] == "temperature":
+        if device_id in [this.espTemperatureId,this.espHumidityId,this.espCo2Id]:
+            datetimeNow=datetime.datetime.strftime(datetime.datetime.now(),this.timeFormat)
+            output=[]
+            if eventTypes==None or "networkStatus" in eventTypes:
                     output.append({
-                        "temperature":{
-                            "value": each[2],
-                            "updateTime": each[3]
-                        }
-                    })
-                elif each[4] == "humidity":
-                    value=each[2].split(",")
-                    temperature=value[0].split(":")[1]
-                    relativeHumidity=value[1].split(":")[1]
-                    output.append({
-                        "humidity":{
-                            "temperature": temperature,
-                            "relativeHumidity":relativeHumidity,
-                            "updateTime": each[3]
-                        }
-                    })
-                elif each[4] == "co2":
-                    output.append({
-                        "co2":{
-                            "ppm": each[2],
-                            "updateTime": each[3]
-                        }
-                    })
-                elif each[4] == "touch":
-                    output.append({
-                        "touch":{
-                            "updateTime": each[3]
-                        }
-                    })
-                elif each[4] == "batteryStatus":
-                    output.append({
-                        "batteryStatus":{
-                            "percentage": each[2],
-                            "updateTime": each[3]
-                        }
-                    })
-                elif each[4] == "networkStatus":
-                    value=each[2].split(",")
-                    signalStrength=value[0].split(":")[1]
-                    rssi=value[1].split(":")[1]
-                    cc_id=value[2].split(":")[1]
-                    cc_signalStrength=value[3].split(":")[1]
-                    cc_rssi=value[4].split(":")[1]
-                    transmissionMode=value[5].split(":")[1]
-                    output.append({
-                        "networkStatus":{
-                            "signalStrength": signalStrength,
-                            "rssi": rssi,
-                            "updateTime": each[3],
-                            "cloudConnectors": [{
-                                "id": cc_id,
-                                "signalStrength": cc_signalStrength,
-                                "rssi": cc_rssi,
+                        "networkStatus": {
+                            "signalStrength": "100",
+                            "rssi": "0",
+                            "updateTime": datetimeNow,
+                            "cloudConnectors":[{
+                                "id": "esp32",
+                                "signalStrength": "100",
+                                "rssi": "0"
                             }],
-                            "transmissionMode": transmissionMode
+                            "transmissionMode": "LOW_POWER_STANDARD_MODE"
                         }
                     })
-                elif each[4] == "connectionStatus":
-                    value=each[2].split(",")
-                    connection=value[0].split(":")[1]
-                    available=value[1].split(":")[1].split("[")[1].split("]")[0].split(";")
+            if eventTypes==None or "batteryStatus" in eventTypes:
                     output.append({
-                        "connectionStatus": { 
-                            "connection": connection,
-                            "available": available,
-                            "updateTime": each[3]
+                        "batteryStatus": {
+                            "percentage": "100",
+                            "updateTime": datetimeNow
                         }
                     })
-                elif each[4] == "ethernetStatus":
-                    value=each[2].split(",")
-                    macAddress=value[0].split(":",1)[1]
-                    ipAddress=value[1].split(":",1)[1]
-                    errors=value[2].split(":",1)[1].split("[")[1].split("]")[0].split(";")
-                    errorCode=errors[0].split(":",1)[1]
-                    errorMessage=errors[1].split(":",1)[1]
+            if eventTypes==None or "touch" in eventTypes:
                     output.append({
-                        "ethernetStatus": {
-                            "macAddress": macAddress,
-                            "ipAddress": ipAddress,
-                            "errors": [
-                                {"code": errorCode, "message": errorMessage},
-                            ],
-                            "updateTime": each[3],
+                        "touch": {
+                            "updateTime": datetimeNow
                         }
                     })
-                elif each[4] == "cellularStatus":
-                    value=each[2].split(",")
-                    signalStrength=value[0].split(":")[1]
-                    errors=value[1].split(":",1)[1].split("[")[1].split("]")[0].split(";")
-                    errorCode=errors[0].split(":",1)[1]
-                    errorMessage=errors[1].split(":",1)[1]
-                    output.append({
-                        "cellularStatus": {
-                            "signalStrength": signalStrength,
-                            "errors": [
-                                {"code": errorCode, "message": errorMessage},
-                            ],
-                            "updateTime": each[3],
+            link=None
+            if device_id==this.espTemperatureId and (eventTypes==None or "temperature" in eventTypes):
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(this.espLinks["temperature"])
+                    esp32feed=response.json()["feeds"]
+                reformattedFeed=[]
+                for each in esp32feed:
+                    reformattedFeed.append({
+                        "temperature": {
+                            "value": each["field1"],
+                            "updateTime": each["created_at"]
                         }
                     })
+            elif device_id==this.espHumidityId and (eventTypes==None or "humidity" in eventTypes):
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(this.espLinks["humidity"])
+                    esp32feed=response.json()["feeds"]
+                reformattedFeed=[]
+                for each in esp32feed:
+                    reformattedFeed.append({
+                        "humidity": {
+                            "temperature": 21, #note: could be changed to get value from temp sensor but is a maybe feature
+                            "relativeHumidity": each["field2"],
+                            "updateTime": each["created_at"]
+                        }
+                    })
+            elif device_id==this.espCo2Id and (eventTypes==None or "co2" in eventTypes):
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(this.espLinks["co2"])
+                    esp32feed=response.json()["feeds"]
+                reformattedFeed=[]
+                for each in esp32feed:
+                    reformattedFeed.append({
+                        "co2": {
+                            "ppm": each["field3"],
+                            "updateTime": each["created_at"]
+                        }
+                    })
+            output=output+reformattedFeed
+
+        else:
+            query="""
+            SELECT event_id, device_name, value, datetime, event_type
+            FROM events
+            INNER JOIN devices
+            ON events.device_id = devices.device_id
+            """
+            sql_where='WHERE device_name = "'+device_id+'"'
+            if eventTypes is not None:
+                sql_where+=" AND events.event_type IN ("
+                for i in range(len(eventTypes)):
+                    if i!=0:
+                        sql_where+=","
+                    sql_where+='"'+eventTypes[i]+'"'
+                sql_where+=")"
+            query+=sql_where
+            rows=this.db.run_query(query)
+            output=[]
+            for each in rows:
+                if this.__DT1BetweenDT2andDT3(datetime.datetime.strptime(each[3],this.timeFormat),startTime,endTime):
+                    if each[4] == "temperature":
+                        output.append({
+                            "temperature":{
+                                "value": each[2],
+                                "updateTime": each[3]
+                            }
+                        })
+                    elif each[4] == "humidity":
+                        value=each[2].split(",")
+                        temperature=value[0].split(":")[1]
+                        relativeHumidity=value[1].split(":")[1]
+                        output.append({
+                            "humidity":{
+                                "temperature": temperature,
+                                "relativeHumidity":relativeHumidity,
+                                "updateTime": each[3]
+                            }
+                        })
+                    elif each[4] == "co2":
+                        output.append({
+                            "co2":{
+                                "ppm": each[2],
+                                "updateTime": each[3]
+                            }
+                        })
+                    elif each[4] == "touch":
+                        output.append({
+                            "touch":{
+                                "updateTime": each[3]
+                            }
+                        })
+                    elif each[4] == "batteryStatus":
+                        output.append({
+                            "batteryStatus":{
+                                "percentage": each[2],
+                                "updateTime": each[3]
+                            }
+                        })
+                    elif each[4] == "networkStatus":
+                        value=each[2].split(",")
+                        signalStrength=value[0].split(":")[1]
+                        rssi=value[1].split(":")[1]
+                        cc_id=value[2].split(":")[1]
+                        cc_signalStrength=value[3].split(":")[1]
+                        cc_rssi=value[4].split(":")[1]
+                        transmissionMode=value[5].split(":")[1]
+                        output.append({
+                            "networkStatus":{
+                                "signalStrength": signalStrength,
+                                "rssi": rssi,
+                                "updateTime": each[3],
+                                "cloudConnectors": [{
+                                    "id": cc_id,
+                                    "signalStrength": cc_signalStrength,
+                                    "rssi": cc_rssi,
+                                }],
+                                "transmissionMode": transmissionMode
+                            }
+                        })
+                    elif each[4] == "connectionStatus":
+                        value=each[2].split(",")
+                        connection=value[0].split(":")[1]
+                        available=value[1].split(":")[1].split("[")[1].split("]")[0].split(";")
+                        output.append({
+                            "connectionStatus": { 
+                                "connection": connection,
+                                "available": available,
+                                "updateTime": each[3]
+                            }
+                        })
+                    elif each[4] == "ethernetStatus":
+                        value=each[2].split(",")
+                        macAddress=value[0].split(":",1)[1]
+                        ipAddress=value[1].split(":",1)[1]
+                        errors=value[2].split(":",1)[1].split("[")[1].split("]")[0].split(";")
+                        errorCode=errors[0].split(":",1)[1]
+                        errorMessage=errors[1].split(":",1)[1]
+                        output.append({
+                            "ethernetStatus": {
+                                "macAddress": macAddress,
+                                "ipAddress": ipAddress,
+                                "errors": [
+                                    {"code": errorCode, "message": errorMessage},
+                                ],
+                                "updateTime": each[3],
+                            }
+                        })
+                    elif each[4] == "cellularStatus":
+                        value=each[2].split(",")
+                        signalStrength=value[0].split(":")[1]
+                        errors=value[1].split(":",1)[1].split("[")[1].split("]")[0].split(";")
+                        errorCode=errors[0].split(":",1)[1]
+                        errorMessage=errors[1].split(":",1)[1]
+                        output.append({
+                            "cellularStatus": {
+                                "signalStrength": signalStrength,
+                                "errors": [
+                                    {"code": errorCode, "message": errorMessage},
+                                ],
+                                "updateTime": each[3],
+                            }
+                        })
+        
         return output
 
     async def getEspDevice(this):
-        tempLink="https://api.thingspeak.com/channels/2048224/fields/1.json?api_key=WNBPHCR9UFKPAV6N"
-        humidityLink="https://api.thingspeak.com/channels/2048224/fields/2.json?api_key=WNBPHCR9UFKPAV6N"
-        co2Link="https://api.thingspeak.com/channels/2048224/fields/3.json?api_key=WNBPHCR9UFKPAV6N"
         async with httpx.AsyncClient() as client:
-            response_temp = await client.get(tempLink)
-            response_humidity = await client.get(humidityLink)
-            response_co2 = await client.get(co2Link)
+            response_temp = await client.get(this.espLinks["temperature"])
+            response_humidity = await client.get(this.espLinks["humidity"])
+            response_co2 = await client.get(this.espLinks["co2"])
             esp32={}
             esp32["temperature"]=response_temp.json()
             esp32["humidity"]=response_humidity.json()
             esp32["co2"]=response_co2.json()
-        # {
-        #     "channel":{
-        #         "id":2048224,
-        #         "name":"esp32",
-        #         "latitude":"0.0",
-        #         "longitude":"0.0",
-        #         "field1":"temp",
-        #         "field2":"humidity",
-        #         "field3":"eco2",
-        #         "created_at":"2023-02-28T09:45:47Z",
-        #         "updated_at":"2023-03-16T03:18:15Z",
-        #         "last_entry_id":1078
-        #     },
-        #     "feeds":[
-        #         {
-        #             "created_at":"2023-03-16T12:21:41Z",
-        #             "entry_id":1077,
-        #             "field1":"25.27561"
-        #         },
-        #         {
-        #             "created_at":"2023-03-16T12:22:12Z",
-        #             "entry_id":1078,
-        #             "field1":"25.29774"
-        #         }
-        #     ]
-        # }
+        #remove the string below:
+        example_thingspeak_response="""{ 
+            "channel":{
+                "id":2048224,
+                "name":"esp32",
+                "latitude":"0.0",
+                "longitude":"0.0",
+                "field1":"temp",
+                "field2":"humidity",
+                "field3":"eco2",
+                "created_at":"2023-02-28T09:45:47Z",
+                "updated_at":"2023-03-16T03:18:15Z",
+                "last_entry_id":1078
+            },
+            "feeds":[
+                {
+                    "created_at":"2023-03-16T12:21:41Z",
+                    "entry_id":1077,
+                    "field1":"25.27561"
+                },
+                {
+                    "created_at":"2023-03-16T12:22:12Z",
+                    "entry_id":1078,
+                    "field1":"25.29774"
+                }
+            ]
+        }"""
+        #end remove
         latest_temperature_event=esp32["temperature"]["feeds"][-1]
         latest_humidity_event=esp32["humidity"]["feeds"][-1]
         latest_co2_event=esp32["co2"]["feeds"][-1]
         datetimeNow=datetime.datetime.strftime(datetime.datetime.now(),this.timeFormat)
         show=1
         esp32Temperature={
-            "name": "projects/i7prjqnb2c4b6rob9xc2/devices/esp32temperature",
+            "name": "projects/i7prjqnb2c4b6rob9xc2/devices/"+this.espTemperatureId,
             "type": "temperature",
             "labels": {
                 "group": "esp32",
@@ -367,31 +444,14 @@ class dataRead:
                     "value": latest_temperature_event["field1"],
                     "updateTime": latest_temperature_event["created_at"]
                 },
-                "networkStatus": {
-                    "signalStrength": "100",
-                    "rssi": "0",
-                    "updateTime": datetimeNow,
-                    "cloudConnectors": [
-                    {
-                        "id": "esp32",
-                        "signalStrength": "100",
-                        "rssi": "0"
-                    }
-                    ],
-                    "transmissionMode": "LOW_POWER_STANDARD_MODE"
-                },
-                "batteryStatus": {
-                    "percentage": "100",
-                    "updateTime": datetimeNow
-                },
-                "touch": {
-                    "updateTime": datetimeNow
-                }
+                "networkStatus": {"signalStrength": "100","rssi": "0","updateTime": datetimeNow,"cloudConnectors": [{"id": "esp32","signalStrength": "100","rssi": "0"}],"transmissionMode": "LOW_POWER_STANDARD_MODE"},
+                "batteryStatus": {"percentage": "100","updateTime": datetimeNow},
+                "touch": {"updateTime": datetimeNow}
             },
-            "productNumber": esp32["temperature"]["channel"]["id"]+"1"
+            "productNumber": esp32["temperature"]["channel"]["id"]+1
         }
         esp32Humidity={
-            "name": "projects/i7prjqnb2c4b6rob9xc2/devices/esp32humidity",
+            "name": "projects/i7prjqnb2c4b6rob9xc2/devices/"+this.espHumidityId,
             "type": "humidity",
             "labels": {
                 "group": "esp32",
@@ -403,31 +463,14 @@ class dataRead:
                     "relativeHumidity": latest_humidity_event["field2"],
                     "updateTime": latest_humidity_event["created_at"]
                 },
-                "networkStatus": {
-                    "signalStrength": "100",
-                    "rssi": "0",
-                    "updateTime": datetimeNow,
-                    "cloudConnectors": [
-                    {
-                        "id": "esp32",
-                        "signalStrength": "100",
-                        "rssi": "0"
-                    }
-                    ],
-                    "transmissionMode": "LOW_POWER_STANDARD_MODE"
-                },
-                "batteryStatus": {
-                    "percentage": "100",
-                    "updateTime": datetimeNow
-                },
-                "touch": {
-                    "updateTime": datetimeNow
-                }
+                "networkStatus": {"signalStrength": "100","rssi": "0","updateTime": datetimeNow,"cloudConnectors": [{"id": "esp32","signalStrength": "100","rssi": "0"}],"transmissionMode": "LOW_POWER_STANDARD_MODE"},
+                "batteryStatus": {"percentage": "100","updateTime": datetimeNow},
+                "touch": {"updateTime": datetimeNow}
             },
-            "productNumber": esp32["humidity"]["channel"]["id"]+"2"
+            "productNumber": esp32["humidity"]["channel"]["id"]+2
         }
         esp32Co2={
-            "name": "projects/i7prjqnb2c4b6rob9xc2/devices/esp32co2",
+            "name": "projects/i7prjqnb2c4b6rob9xc2/devices/"+this.espCo2Id,
             "type": "co2",
             "labels": {
                 "group": "esp32",
@@ -438,34 +481,21 @@ class dataRead:
                     "ppm": latest_co2_event["field3"],
                     "updateTime": latest_co2_event["created_at"]
                 },
-                "networkStatus": {
-                    "signalStrength": "100",
-                    "rssi": "0",
-                    "updateTime": datetimeNow,
-                    "cloudConnectors": [
-                    {
-                        "id": "esp32",
-                        "signalStrength": "100",
-                        "rssi": "0"
-                    }
-                    ],
-                    "transmissionMode": "LOW_POWER_STANDARD_MODE"
-                },
-                "batteryStatus": {
-                    "percentage": "100",
-                    "updateTime": datetimeNow
-                },
-                "touch": {
-                    "updateTime": datetimeNow
-                }
+                "networkStatus": {"signalStrength": "100","rssi": "0","updateTime": datetimeNow,"cloudConnectors": [{"id": "esp32","signalStrength": "100","rssi": "0"}],"transmissionMode": "LOW_POWER_STANDARD_MODE"},
+                "batteryStatus": {"percentage": "100","updateTime": datetimeNow},
+                "touch": {"updateTime": datetimeNow}
             },
-            "productNumber": esp32["co2"]["channel"]["id"]+"3"
+            "productNumber": esp32["co2"]["channel"]["id"]+3
         }
         result={}
         result["temperature"]=esp32Temperature
         result["humidity"]=esp32Humidity
         result["co2"]=esp32Co2
         return result
+
+
+
+
 
     def __getProjectIdFromName(this,name:str):
         return name.rsplit('/')[2]
