@@ -19,7 +19,7 @@ class dbConnect:
         conn.close()
         return rows
     
-    def run_insert(this, query):
+    def run_insert(this, query): #maybe rename to run_command or run_no_return ?
         conn = None
         try:
             conn = sqlite3.connect(this.__database)

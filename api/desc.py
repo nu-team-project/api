@@ -65,6 +65,21 @@ allows the updating of alerts
 ## >CUSTOM< --needs auth
 
 allows the removal of alerts
+""",
+"createDevices":"""
+## >CUSTOM< --needs auth
+
+allows the creation of devices
+""",
+"updateDevices":"""
+## >CUSTOM< --needs auth
+
+allows the update of devices
+""",
+"removeDevices":"""
+## >CUSTOM< --needs auth
+
+allows the removal of devices
 """
 }
 tags_metadata = [

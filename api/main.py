@@ -7,11 +7,13 @@ from api.desc import *
 from api.dataRead import *
 from api.emulateData import *
 from api.alertManager import *
+from api.deviceManage import *
 
 
 myDataEmulate=dataEmulater()
 myDataRead=dataRead()
 myAlerts=alertManager()
+myDevices=deviceManager()
 app = FastAPI(title=Title["app"],description=Desc["app"],openapi_tags=tags_metadata)
 
 
@@ -34,14 +36,12 @@ async def root():
 
 @app.get("/test",tags=["proto"])
 async def test():
-    return {
-        "message":"welcome to the test endpoint"
-    }
+    return {"message":"welcome to the test endpoint"}
 
 @app.get("/emulate",tags=["proto"],description=Desc["emulate"])
 async def emulate():
     myDataEmulate.emulateData()
-    return {"message":"emulation complete"}
+    return {"message":"success"}
 
 @app.get("/esp32",tags=["proto"],description=Desc["esp32"])
 async def esp32():
@@ -118,16 +118,33 @@ async def alerts(employee_id:int=None,type:str=None,event_id:int=None):
     return output
 
 @app.get("/alerts/create",tags=["Custom"],description=Desc["createAlerts"]) #this will require auth eventually
-async def create_alerts(employee_id:int,device_name:str,threshold:float,max:int): 
+async def create_alert(employee_id:int,device_name:str,threshold:float,max:int): 
     output=myAlerts.createAlerts(employee_id,device_name,threshold,max)
     return output
 
 @app.get("/alerts/update/{alert_id}",tags=["Custom"],description=Desc["updateAlerts"]) #this will require auth eventually
-async def update_alerts(alert_id:int,employee_id:int=None,device_id:int=None,threshold:float=None,max:int=None): 
+async def update_alert(alert_id:int,employee_id:int=None,device_id:int=None,threshold:float=None,max:int=None): 
     output=myAlerts.updateAlerts(alert_id=alert_id,employee_id=employee_id,device_id=device_id,threshold=threshold,max=max)
     return output
 
-@app.get("/alerts/remove",tags=["Custom"],description=Desc["removeAlerts"]) #this will require auth eventually
-async def remove_alerts(alert_id:int): 
+@app.get("/alerts/remove/{alert_id}",tags=["Custom"],description=Desc["removeAlerts"]) #this will require auth eventually
+async def remove_alert(alert_id:int): 
     output=myAlerts.removeAlerts(alert_id=alert_id)
+    return output
+
+
+@app.get("/devices/create",tags=["Custom"],description=Desc["createDevices"]) #this will require auth eventually
+async def create_device(device_type:str,device_name:str,product_number:int,show:int=1,group_name:str=None): 
+    output=myDevices.createDevice(device_type=device_type,device_name=device_name,product_number=product_number,show=show,group_name=group_name)
+    return output
+    
+
+@app.get("/devices/update/{device_id}",tags=["Custom"],description=Desc["updateDevices"]) #this will require auth eventually
+async def update_devices(device_id:str,device_name:str=None,device_type:str=None,product_number:int=None,show:int=None,group_name:str=None): 
+    output=myDevices.updateDevice(device_id=device_id,device_type=device_type,device_name=device_name,product_number=product_number,show=show,group_name=group_name)
+    return output
+
+@app.get("/devices/remove/{device}",tags=["Custom"],description=Desc["removeDevices"]) #this will require auth eventually
+async def remove_device(device_id:int): 
+    output=myDevices.removeDevice(device_id=device_id)
     return output
