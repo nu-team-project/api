@@ -9,7 +9,7 @@ The deployed version of the API is deployed on Microsoft Azure
 
 **API Base URLs:**
 
-The current active API can be found at the link here: [`https://20.108.140.207/`](https://20.108.140.207/ "API version 3, uploaded 24/03/23")
+The current active API can be found at the link here: [https://20.108.140.207/](https://20.108.140.207/ "API version 3, uploaded 24/03/23")
 
 A full list of active API versions can be found in the table below:
 
@@ -17,8 +17,8 @@ A full list of active API versions can be found in the table below:
 
 | URL | current? | active? | version | upload date |
 | --- | --- | --- | --- | --- |
-| https\:\/\/20\.108\.89\.49/ | old | active | version 2 | 23/03/2023 |
-| [https://20.108.140.207/](https://20.108.140.207/ "API version 3, uploaded 24/03/23") | current | active | version 3 | 24/03/2023 |
+| `https://20.108.89.49` | old | active | version 2 | 23/03/2023 |
+| https://20.108.140.207/ | current | active | version 3 | 24/03/2023 |
 
 
 
