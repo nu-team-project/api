@@ -7,13 +7,15 @@ from api.desc import *
 from api.dataRead import *
 from api.emulateData import *
 from api.alertManager import *
-from api.deviceManage import *
+from api.deviceManager import *
+from api.employeeManager import *
 
 
 myDataEmulate=dataEmulater()
 myDataRead=dataRead()
 myAlerts=alertManager()
 myDevices=deviceManager()
+myEmployees=employeeManager()
 app = FastAPI(title=Title["app"],description=Desc["app"],openapi_tags=tags_metadata)
 
 
@@ -34,10 +36,6 @@ async def root():
         }
     }
 
-@app.get("/test",tags=["proto"])
-async def test():
-    return {"message":"welcome to the test endpoint"}
-
 @app.get("/emulate",tags=["proto"],description=Desc["emulate"])
 async def emulate():
     myDataEmulate.emulateData()
@@ -53,7 +51,7 @@ async def esp32():
 
 
 @app.get("/projects",tags=["Organizations & Projects"],description=Desc["projectList"])
-async def list_projects(): #unsused-params: query:str="",pageSize:int=10,pageToken:int=0 
+async def list_projects():
     return {"projects":[
                 {
                     "name":"projects/i7prjqnb2c4b6rob9xc2",
@@ -84,7 +82,7 @@ async def get_a_single_project(project):
          return {"message":"project not found"}
 
 @app.get("/projects/{project}/devices",tags=["Devices & Labels"],description=Desc["deviceList"])
-async def list_sensors_and_cloud_devices(project:str,deviceIds:Union[list[str],None]=Query(default=None),deviceTypes:Union[list[str],None]=Query(default=None),labelFilters:Union[list[str],None]=Query(default=None)): #unused-params: orderBy:str=None,query:str=None,productNumbers:Union[list[str],None]=Query(default=None),pageSize:int=None,pageToken:str=None
+async def list_sensors_and_cloud_devices(project:str,deviceIds:Union[list[str],None]=Query(default=None),deviceTypes:Union[list[str],None]=Query(default=None),labelFilters:Union[list[str],None]=Query(default=None)):
     deviceData= await myDataRead.getDevices(project_id=project,deviceIds=deviceIds,deviceTypes=deviceTypes,labelFilters=labelFilters)
     return {"devices":deviceData}
 
@@ -94,7 +92,7 @@ async def get_a_single_device(project:str,device:str):
     return output
 
 @app.get("/projects/{project}/devices/{device}/events",tags=["Event History"],description=Desc["eventHistory"])
-async def event_history(project:str,device:str,eventTypes:Union[list[str],None]=Query(default=None),startTime:str=None,endTime:str=None): #unused-params: pageSize:int=100
+async def event_history(project:str,device:str,eventTypes:Union[list[str],None]=Query(default=None),startTime:str=None,endTime:str=None):
     timeFormat="%Y-%m-%dT%H:%M:%S.%fZ"
     if startTime is None:
         startTime=datetime.datetime.now()-datetime.timedelta(hours = 24)
@@ -113,8 +111,8 @@ async def event_history(project:str,device:str,eventTypes:Union[list[str],None]=
 
 
 @app.get("/alerts",tags=["Custom"],description=Desc["getAlerts"]) #this will require auth eventually
-async def alerts(employee_id:int=None,type:str=None,event_id:int=None): 
-    output=myAlerts.getAlerts(employee_id=employee_id,type=type,event_id=event_id)
+async def alerts(employee_id:int=None,type:str=None): 
+    output=myAlerts.getAlerts(employee_id=employee_id,type=type)
     return output
 
 @app.get("/alerts/create",tags=["Custom"],description=Desc["createAlerts"]) #this will require auth eventually
@@ -123,8 +121,8 @@ async def create_alert(employee_id:int,device_name:str,threshold:float,max:int):
     return output
 
 @app.get("/alerts/update/{alert_id}",tags=["Custom"],description=Desc["updateAlerts"]) #this will require auth eventually
-async def update_alert(alert_id:int,employee_id:int=None,device_id:int=None,threshold:float=None,max:int=None): 
-    output=myAlerts.updateAlerts(alert_id=alert_id,employee_id=employee_id,device_id=device_id,threshold=threshold,max=max)
+async def update_alert(alert_id:int,employee_id:int=None,device_name:int=None,threshold:float=None,max:int=None): 
+    output=myAlerts.updateAlerts(alert_id=alert_id,employee_id=employee_id,device_name=device_name,threshold=threshold,max=max)
     return output
 
 @app.get("/alerts/remove/{alert_id}",tags=["Custom"],description=Desc["removeAlerts"]) #this will require auth eventually
@@ -137,14 +135,21 @@ async def remove_alert(alert_id:int):
 async def create_device(device_type:str,device_name:str,product_number:int,show:int=1,group_name:str=None): 
     output=myDevices.createDevice(device_type=device_type,device_name=device_name,product_number=product_number,show=show,group_name=group_name)
     return output
-    
-
-@app.get("/devices/update/{device_id}",tags=["Custom"],description=Desc["updateDevices"]) #this will require auth eventually
-async def update_devices(device_id:str,device_name:str=None,device_type:str=None,product_number:int=None,show:int=None,group_name:str=None): 
+  
+@app.get("/devices/update/{device}",tags=["Custom"],description=Desc["updateDevices"]) #this will require auth eventually
+async def update_devices(device:str,device_name:str=None,device_type:str=None,product_number:int=None,show:int=None,group_name:str=None): 
+    device_id=myDevices.getDeviceIDFromName(device_name=device)
     output=myDevices.updateDevice(device_id=device_id,device_type=device_type,device_name=device_name,product_number=product_number,show=show,group_name=group_name)
     return output
 
 @app.get("/devices/remove/{device}",tags=["Custom"],description=Desc["removeDevices"]) #this will require auth eventually
 async def remove_device(device_id:int): 
     output=myDevices.removeDevice(device_id=device_id)
+    return output
+
+
+
+@app.get("/employees",tags=["Custom"],description=Desc["getEmployees"])
+async def get_employees(employee_ids:Union[list[int],None]=Query(default=None)):
+    output=myEmployees.getEmployees(employee_ids=employee_ids)
     return output

@@ -5,6 +5,20 @@ from api.dbConnect import *
 class dataEmulater:
     def __init__(this):
         this.db=dbConnect()
+        # Default starting value for events, used if event data is absent from the database
+        # This is needed when devices have just been created, and have no events yet
+        # Initialising this dictionary here allows easier changing of values during development 
+        this.defaultStartValues={
+            "temperature":21,
+            "humidity":"temperature:21.36,realtiveHumidity:78.59",
+            "co2":449,
+            "batteryStatus":100,
+            "connectionStatus":"connection:ETHERNET,available:[ETHERNET;CELLULAR]",
+            "networkStatus":"signalStrength:75,rssi:50,cc_id:rjc3imeidwhx459meiam,cc_signalStrength:70,cc_rssi:25,transmissionMode:LOW_POWER_STANDARD_MODE",
+            "touch":0,
+            "ethernetStatus":"macAddress:A3:68:12:B4:98:45,ipAddress:192.0.2.1,errors:[code:404;message:not found]",
+            "cellularStatus":"signalStrength:70,errors:[code:404;message:not found]",
+        }
 
     def __changeAndRound(this,data:float,maxChangeUp:int,maxChangeDown:int,lowerBound:float,upperBound:float,decimalPlaceChange:int=0,roundTo:int=0) -> float: 
             """
@@ -50,25 +64,23 @@ class dataEmulater:
             else:
                 output["battery"]=this.__changeAndRound(float(prevData["battery"]),0,3,5,100)
         elif type=="ccon":
-            #output["networkStatus_signalStrength"]=this.__changeAndRound(float(prevData["networkStatus_signalStrength"]),3,3,25,75)
-            #output["networkStatus_rssi"]=this.__changeAndRound(float(prevData["networkStatus_rssi"]),5,5,-100,-10)
-            #output["cellularStatus_signalStrength"]=this.__changeAndRound(float(prevData["cellularStatus_signalStrength"]),3,3,45,95)
+            #cloud connector information is not generated currently, as it is not needed for the prototype, however this stucture was put in for potential future use
             pass
         return output
 
     def emulateData(this):
-        #///////////////////[GET ALL DEVICES]///////////////////
+        #get all devices in the database and their types
         sql_getAllDevicesAndTypes="""
         SELECT device_id, type
         FROM devices
         WHERE type IN ("temperature", "humidity", "co2", "ccon")
         """
         allDevicesAndTypes=this.db.run_query(sql_getAllDevicesAndTypes)
+
+        #for each device in the database, get the most recent of each type of event, then store it in the database
         for each in allDevicesAndTypes:
             this_device_id=each[0]
             this_device_type=each[1]
-
-            #///////////////////[GET PREVIOUS EVENT VALUES]///////////////////
             sql_getLatestEvents="""
             SELECT event_id, device_id, value, datetime, event_type
             FROM (
@@ -80,7 +92,9 @@ class dataEmulater:
             GROUP BY event_type
             """.format(this_device_id)
             latestEvents=this.db.run_query(sql_getLatestEvents)
-            prev_value={}
+            
+            #go through each event returned and store the values in one dictionary for ease of use.
+            prev_value=this.defaultStartValues
             for eachEvent in latestEvents:
                 event_type=eachEvent[4]
                 event_value=eachEvent[2]
@@ -103,7 +117,14 @@ class dataEmulater:
                 elif event_type == "cellularStatus":
                     prev_value["cellularStatus"]=event_value
 
-            #///////////////////[EXTRACT IMPORTANT DATA FROM VALUES]///////////////////
+
+            # #if data for an event type is missing for a sensor, then use the default values set up in the class constructor. This is needed when devices have just been created, and have no events yet 
+            # print("prev_value = {}".format(prev_value))
+            # for eachDefault in this.defaultStartValues.keys():
+            #     if eachDefault not in prev_value.keys():
+            #         prev_value=this.defaultStartValues[eachDefault]
+
+            #go through the events appropriate to the device and extract the exact data from them that will be operated on
             prev_data={}
             if this_device_type=="temperature":
                 prev_data["temperature"]=prev_value["temperature"]
@@ -115,13 +136,12 @@ class dataEmulater:
                 prev_data["co2"]=prev_value["co2"]
                 prev_data["battery"]=prev_value["batteryStatus"]
             elif this_device_type=="ccon":
-                #prev_data["networkStatus_signalStrength"]=prev_value["networkStatus"].split(",")[0].split(":")[1]
-                #prev_data["networkStatus_rssi"]=prev_value["networkStatus"].split(",")[1].split(":")[1]
-                #prev_data["cellularStatus_signalStrength"]=prev_value["cellularStatus"].split(",")[0].split(":")[1]
-                pass
+                pass #cloud connector information is not generated currently, as it is not needed for the prototype, however this stucture was put in for potential future use
+            
+            #generate the new values needed for this device type
             new_data=this.__genEmulatedData(prevData=prev_data,type=this_device_type)
 
-            #///////////////////[WRITE NEW VALUES TO DATABASE]///////////////////
+            #write the new events to the database
             datetimeFormat="%Y-%m-%dT%H:%M:%S.%fZ"
             datetimeNow=datetime.datetime.strftime(datetime.datetime.now(),datetimeFormat)
             sql_insert="INSERT INTO events (device_id, value, datetime, event_type) VALUES "

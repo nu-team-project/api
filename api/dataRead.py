@@ -129,6 +129,8 @@ class dataRead:
         ORDER BY event_type
         """.format(device_id)
         rows=this.db.run_query(sql_latestEvents)
+        if len(rows)==0:
+            return {}
         output={}
         if type == "temperature":
             output["temperature"]={"value":rows[2][2],"updateTime":rows[2][3]}
@@ -492,7 +494,6 @@ class dataRead:
         result["humidity"]=esp32Humidity
         result["co2"]=esp32Co2
         return result
-
 
 
 

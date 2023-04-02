@@ -10,8 +10,14 @@ class alertManager:
         where:str=None
         query="SELECT alert_id, employee_id, device_name, type, threshold, max FROM alerts INNER JOIN devices ON alerts.device_id = devices.device_id"
         if employee_id is not None:
+            sql_checkEmployeeId="Select * from employees where employee_id = {}".format(employee_id)
+            rows=this.db.run_query(sql_checkEmployeeId)
+            if len(rows)==0:
+                return {"error":"employee_id {} not found".format(employee_id)}
             where=(" WHERE" if where is None else where+" AND")+(" employee_id="+str(employee_id))
         if type is not None:
+            if type not in ["temperature","humidity","co2","ccon"]:
+                return {"error","unknown type {}".format(type)}
             where=(" WHERE" if where is None else where+" AND")+(" type="+type)
         if where is not None:
             query+=where
@@ -25,30 +31,7 @@ class alertManager:
             output.append(alert)
         return {"message":"success","alerts":output}
         
-    def __checkVariableTypes(this,variablesAndTypeList:list[dict]):
-        output=[]
-        for each in variablesAndTypeList:
-            error=False
-            if each["type"]==str and type(each["value"])!=str:
-                error=True
-            elif each["type"]==int:
-                try:
-                    int(each["value"])
-                except:
-                    error=True
-            elif each["type"]==float:
-                try:
-                    float(each["value"])
-                except:
-                    error=True
-            elif each["type"]==bool and each["value"] not in [0,1]:
-                error=True
-            elif each["type"]=="device_type" and each["value"] not in ["ccon","temperature","humidity","co2"]:
-                error=True
-            if error:
-                output.append("Incorrect parameter type for "+each["variableName"]+". Should be "+str(each["type"])+" but equals: "+str(each["value"]))
-        return output
-
+       
     def createAlerts(this,employee_id:int,device_name:str,threshold:float,max:int,auth:bool=True):
         if not auth:
             return {"error":"authorisation failed"}
@@ -90,7 +73,7 @@ class alertManager:
             output.append(alert)
         return {"message":"success","newAlert":output}
     
-    def updateAlerts(this,alert_id:int,employee_id:int=None,device_id:int=None,threshold:float=None,max:int=None,auth:bool=True):
+    def updateAlerts(this,alert_id:int,employee_id:int=None,device_name:int=None,threshold:float=None,max:int=None,auth:bool=True):
         if not auth:
             return {"error":"authorisation failed"}
         
@@ -105,15 +88,18 @@ class alertManager:
             if len(rows)==0:
                 return {"error":"unrecognised employee_id {}".format(employee_id)}
             
-        #if set, check that the device_id exists in the database
-        if device_id is not None:
-            sqlCheckDeviceId="SELECT * FROM devices WHERE device_id='{}'".format(device_id)
-            rows=this.db.run_query(sqlCheckEmployee)
+        #if set, check that the device_name exists in the database and get the database id for it
+        if device_name is not None:
+            sqlCheckDeviceName="SELECT device_id FROM devices WHERE device_name='{}'".format(device_name)
+            rows=this.db.run_query(sqlCheckDeviceName)
             if len(rows)==0:
-                return {"error":"unrecognised device_id {}".format(device_id)}
+                return {"error":"unrecognised device_id {}".format(device_name)}
+            device_id=rows[0][0]
+        else:
+            device_id=None
 
         #check if any optional parameters have actually been set, and return an error if not
-        if employee_id is None and device_id is None  is None and threshold is None and max is None:
+        if employee_id is None and device_name is None  is None and threshold is None and max is None:
             return {"error":"no new values given"}
    
         #check that there is an alert with that alert_id in the database

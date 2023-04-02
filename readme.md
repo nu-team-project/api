@@ -121,8 +121,8 @@ V2:
 
 | Paramater Name | Datatype | Required / Default | Description |
 |---|---|---|---|
-| `employee_id` | _int_ | _default:None_  | 'Database id' of the employee that will recieve the email alert, used to filter results by |
-| `type` | _str_ | _default:None_  | Type of device the alert is attatched, used to filter results by |
+| `employee_id` | _int_ | _default:None_  | 'Database id' of the employee that will recieve the email alert, used to filter results by. Must be an existing employee_id in database or the error `"employee_id {} not found"` will be returned |
+| `type` | _str_ | _default:None_  | Type of device the alert is attatched, used to filter results by. Must be one of "temperature","humidity","co2","ccon" or the error `"unknown type {}"` will be returned |
 
 ---
 
@@ -177,13 +177,14 @@ V2:
 
 **Update Device** - `/devices/update/{device}`
 - Updates a device in the database with the id {device}
+- The current id of the device goes into the url path parameter {device} as shown above, if you wish to change the name, then use the parameter device_name as listed below
 - If none of the non-required parameters are set then the error `"no new values given"` will be returned
 
 | Paramater Name | Datatype | Required / Default | Description |
 |---|---|---|---|
 | `device` | _int_ | _required_ | The id of the device to be updated, must be an existing device id or the error `"unrecognised device_id"` will be returned |
 | `device_type` | _str_ | _default:None_ | Type of device, options: ["temperature", "humidity", "co2", "ccon"] |
-| `device_name` | _str_ | _default:None_ | New id of the device |
+| `device_name` | _str_ | _default:None_ | New id of the device, must be unique to the database or will return error `"device_name {} already in database"`|
 | `product_number` | _int_ | _default:None_ | The product number assigned to the device |
 | `show` | _int_ | _default:None_ | Whether the device should be shown in the public display, acts a boolean with `0` = `False` and `1` = `True`. Must be either `1` or `0` or the error `"show value {} not recognised, must be 0 or 1"` will be returned |
 | `group_name` | _str_ | _default:None_ | Name of the group the device should be in, must be a group that already exists in the database or the error `"group_name {} not recognised"` will be returned |
@@ -197,6 +198,18 @@ V2:
 | Paramater Name | Datatype | Required / Default | Description |
 |---|---|---|---|
 | `device_id` | _int_ | _required_ | The id of the device to be deleted, must exist in the database or the error `"unrecognised device_id"` will be returned |
+
+---
+
+## Employees
+
+**Get Employees** - `/employees`
+- Returns information about the employees
+- Note: the current prototype stores the employees passwords as plain text, this will be encrypted in the final version, however as these are only being used for testing this has not been implemented yet
+
+| Paramater Name | Datatype | Required / Default | Description |
+|---|---|---|---|
+| `employee_ids` | _list[int]_ | _default:None_ | A list of employee ids used in the database, this can be used for filtering with as many employee ids as needed|
 
 ---
 

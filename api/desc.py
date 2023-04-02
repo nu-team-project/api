@@ -80,6 +80,11 @@ allows the update of devices
 ## >CUSTOM< --needs auth
 
 allows the removal of devices
+""",
+"getEmployees":"""
+## >CUSTOM< --needs auth
+
+allows the retrieval of employee information
 """
 }
 tags_metadata = [

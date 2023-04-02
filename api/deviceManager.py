@@ -55,7 +55,7 @@ class deviceManager:
         sqlCheckExisting="SELECT device_id, group_id, type, show, device_name, product_number FROM devices WHERE device_name='{}'".format(device_name)
         rows=this.db.run_query(sqlCheckExisting)
         if len(rows)>0:
-            return {"error":"device_name already in database"}
+            return {"error":"device_name {} already in database".format(device_name)}
         
         if group_name is not None:
             sqlGetGroupId="SELECT group_id FROM groups WHERE group_name='{}'".format(group_name)
@@ -63,14 +63,13 @@ class deviceManager:
             if len(rows)==0:
                 return {"error":"group_name {} not recognised".format(group_name)}
             group_id=rows[0][0]
-        sqlCreateDevice="INSERT INTO devices (group_id, type, show, device_name, product_number) VALUES ('{}','{}','{}','{}','{}')".format(group_id,type,show,device_name,product_number)
+        sqlCreateDevice="INSERT INTO devices (group_id, type, show, device_name, product_number) VALUES ('{}','{}','{}','{}','{}')".format(group_id,device_type,show,device_name,product_number)
         this.db.run_insert(sqlCreateDevice)
         rows=this.db.run_query(sqlCheckExisting)
         if len(rows)==0:
             return {"error":"Device Not found in database after insert"}
         output=this.getDeviceFormatted(device_name=device_name)
         return {"message":"success","new device":output}
-
 
     def updateDevice(this,device_id:int,device_type:str=None,device_name:str=None,product_number:int=None,show:int=None,group_name:str=None,auth:bool=True):
         if not auth:
@@ -84,8 +83,14 @@ class deviceManager:
         if (show not in [0,1]) and show is not None:
             return {"error": "show value {} not recognised, must be 0 or 1".format(show)}
 
-        sqlCheckExisting="SELECT device_id, group_id, type, show, device_name, product_number FROM devices WHERE device_id='{}'".format(device_id)
-        rows=this.db.run_query(sqlCheckExisting)
+        #make sure that the device_name doesn't already exist in the database
+        sqlCheckExistingName="SELECT device_id FROM devices WHERE device_name='{}'".format(device_name)
+        rows=this.db.run_query(sqlCheckExistingName)
+        if len(rows)>0:
+            return {"error":"the device_name {} already exists, device_names must be unique".format(device_name)}
+
+        sqlCheckExistingID="SELECT device_id, group_id, type, show, device_name, product_number FROM devices WHERE device_id='{}'".format(device_id)
+        rows=this.db.run_query(sqlCheckExistingID)
         if len(rows)==0:
             return {"error":"unrecognised device_id"}
 
@@ -113,12 +118,11 @@ class deviceManager:
         this.db.run_insert(sqlUpdate)
         
 
-        rows=this.db.run_query(sqlCheckExisting)
+        rows=this.db.run_query(sqlCheckExistingID)
         if len(rows)==0:
             return {"error":"Device not found in database after update"}
         output=this.getDeviceFormatted(device_id=device_id)
         return {"message":"success","updated device":output}
-
 
     def removeDevice(this,device_id:int,auth:bool=True):
         if not auth:
