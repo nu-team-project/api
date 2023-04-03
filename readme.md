@@ -38,20 +38,20 @@ Then navigate to the directory this readme file is located in and run the comman
 `uvicorn main:app --reload`
 
 
-# Disruptive Systems Endpoints
+# Disruptive Technologies Endpoints
 
-## DS Projects
+## DT Projects
 
 **List Projects** - `/projects`
 - List all the projects available to be used
-- This endpoint exists in order to act more like the Disruptive Systems API, however it only returns a set hard-coded response as full functionality of multiple projects is not required for this prototype
+- This endpoint exists in order to act more like the Disruptive Technologies API, however it only returns a set hard-coded response as full functionality of multiple projects is not required for this prototype
 
 ---
 
 **Single Project** - `/projects/{project}`
 - List the details of a single project with the 'id' of {project}
-- Functionality in order to act like the DS API, only returns a set response - doesn't retrieve data from the database
-- Only project id that retrieves a response is `i7prjqnb2c4b6rob9xc2` - all following DS style endpoints will require this id in the URL in the place of {project}
+- Functionality in order to act like the DT API, only returns a set response - doesn't retrieve data from the database
+- Only project id that retrieves a response is `i7prjqnb2c4b6rob9xc2` - all following DT style endpoints will require this id in the URL in the place of {project}
 
 | Paramater Name | Datatype | Required / Default | Description |
 |---|---|---|---|
@@ -59,7 +59,7 @@ Then navigate to the directory this readme file is located in and run the comman
 
 ---
 
-## DS Devices
+## DT Devices
 
 **List Devices** - `/projects/{project}/devices`
 - Show a list of all devices in the project. The parameters `deviceIds`, `deviceTypes`, and `labelFilters` can be used to filter the list, these all can be combined to achieve further filtering.
@@ -83,7 +83,7 @@ Then navigate to the directory this readme file is located in and run the comman
 
 ---
 
-## DS Events
+## DT Events
 
 **List Device Events** - `/projects/{project}/devices/{device}`
 - List all events of one device with id of {device}. Uses of datetime in this endpoint are formatted into strings using the following format: "`yyyy`-`mm`-`dd`T`HH`:`MM`:`SS`Z"
