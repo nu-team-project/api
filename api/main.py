@@ -1,7 +1,5 @@
-from typing import Annotated, Union
-from fastapi import FastAPI, Query
-import httpx
-from pydantic import BaseModel
+from typing import Union
+from fastapi import FastAPI, Query, Path
 import datetime
 from api.desc import *
 from api.dataRead import *
@@ -9,6 +7,7 @@ from api.emulateData import *
 from api.alertManager import *
 from api.deviceManager import *
 from api.employeeManager import *
+from api.responseModels import *
 
 
 myDataEmulate=dataEmulater()
@@ -16,32 +15,21 @@ myDataRead=dataRead()
 myAlerts=alertManager()
 myDevices=deviceManager()
 myEmployees=employeeManager()
-app = FastAPI(title=Title["app"],description=Desc["app"],openapi_tags=tags_metadata)
+app = FastAPI(title=AppData["title"],description=AppData["desc"],openapi_tags=tags_metadata)
 
 
-@app.get("/",tags=["proto"])
+@app.get("/",tags=["Prototype"])
 async def root():
-    host="http://127.0.0.1:8000"
     return {
-        "message": "Hello, World!",
-        "links":{
-            "docs":"/docs"
-            ,"projects":"/projects/"
-            ,"--filter projectId":"/projects/i7prjqnb2c4b6rob9xc2"
-            ,"devices":"/projects/i7prjqnb2c4b6rob9xc2/devices"
-            ,"--filter sensorTypes":"/projects/i7prjqnb2c4b6rob9xc2/devices?deviceTypes=temperature&deviceTypes=co2"
-            ,"--filter deviceIds":"/projects/i7prjqnb2c4b6rob9xc2/devices?deviceIds=q6xbxrgj42rvjz6bfdgt&deviceIds=k59q5jckmyzm8bpqgb5g"
-            ,"--filter labelFilter group":"/projects/i7prjqnb2c4b6rob9xc2/devices?labelFilters=group=North%20Wing"
-            ,"device-q6xbxrgj42rvjz6bfdgt":"/projects/i7prjqnb2c4b6rob9xc2/devices/q6xbxrgj42rvjz6bfdgt"
-        }
+        "message": "Hello, World!"
     }
 
-@app.get("/emulate",tags=["proto"],description=Desc["emulate"])
+@app.get("/emulate",tags=["Prototype"],description=Desc["emulate"])
 async def emulate():
     myDataEmulate.emulateData()
     return {"message":"success"}
 
-@app.get("/esp32",tags=["proto"],description=Desc["esp32"])
+@app.get("/esp32",tags=["Prototype"],description=Desc["esp32"])
 async def esp32():
     output=await myDataRead.getEspDevice()
     return output
@@ -50,7 +38,7 @@ async def esp32():
 
 
 
-@app.get("/projects",tags=["Organizations & Projects"],description=Desc["projectList"])
+@app.get("/projects",tags=["Projects"],description=Desc["projectList"],response_model=model_project_list)
 async def list_projects():
     return {"projects":[
                 {
@@ -58,14 +46,16 @@ async def list_projects():
                     "displayName":"Example Project",
                     "inventory":False,
                     "organisation":"organizations/0",
-                    "organizationDisplayName": "IoT Monitoring Inc.",
+                    "organisationDisplayName": "IoT Monitoring Inc.",
                     "sensorCount":12,
                     "cloudConnectorCount":4
                 }
             ],"nextPageToken":"c0un66ecie6seakamrlg"}
 
-@app.get("/projects/{project}",tags=["Organizations & Projects"],description=Desc["project"])
-async def get_a_single_project(project):
+@app.get("/projects/{project}",tags=["Projects"],description=Desc["project"],response_model=model_project_list)
+async def get_a_single_project(
+    project:str=Path(description=QueryDesc["/projects/project"]["project"])
+):
     if(project=="i7prjqnb2c4b6rob9xc2"):
         return {"projects":[
                     {
@@ -73,7 +63,7 @@ async def get_a_single_project(project):
                         "displayName":"Example Project",
                         "inventory":False,
                         "organisation":"organizations/0",
-                        "organizationDisplayName": "IoT Monitoring Inc.",
+                        "organisationDisplayName": "IoT Monitoring Inc.",
                         "sensorCount":12,
                         "cloudConnectorCount":4
                     }
@@ -81,19 +71,33 @@ async def get_a_single_project(project):
     else:
          return {"message":"project not found"}
 
-@app.get("/projects/{project}/devices",tags=["Devices & Labels"],description=Desc["deviceList"])
-async def list_sensors_and_cloud_devices(project:str,deviceIds:Union[list[str],None]=Query(default=None),deviceTypes:Union[list[str],None]=Query(default=None),labelFilters:Union[list[str],None]=Query(default=None)):
-    deviceData= await myDataRead.getDevices(project_id=project,deviceIds=deviceIds,deviceTypes=deviceTypes,labelFilters=labelFilters)
+@app.get("/projects/{project}/devices",tags=["Devices & Labels"],description=Desc["deviceList"],response_model=model_device_list)
+async def list_sensors_and_cloud_devices(
+    project:str=Path(description=QueryDesc["/projects/project/devices"]["project"]),
+    deviceIds:Union[list[str],None]=Query(default=None,description=QueryDesc["/projects/project/devices"]["deviceIds"]),
+    deviceTypes:Union[list[str],None]=Query(default=None,description=QueryDesc["/projects/project/devices"]["deviceTypes"]),
+    labelFilters:Union[list[str],None]=Query(default=None,description=QueryDesc["/projects/project/devices"]["labelFilters"])
+):
+    deviceData=await myDataRead.getDevices(project_id=project,deviceIds=deviceIds,deviceTypes=deviceTypes,labelFilters=labelFilters)
     return {"devices":deviceData}
 
-@app.get("/projects/{project}/devices/{device}",tags=["Devices & Labels"],description=Desc["device"])
-async def get_a_single_device(project:str,device:str):
+@app.get("/projects/{project}/devices/{device}",tags=["Devices & Labels"],description=Desc["device"],response_model=Union[model_device,model_device_empty_events])
+async def get_a_single_device(
+    project:str=Path(description=QueryDesc["/projects/project/devices/device"]["project"]),
+    device:str=Path(description=QueryDesc["/projects/project/devices/device"]["device"])
+):
     output = await myDataRead.getDevices(project_id=project,deviceIds=[device])
-    return output
+    return output[0]
 
-@app.get("/projects/{project}/devices/{device}/events",tags=["Event History"],description=Desc["eventHistory"])
-async def event_history(project:str,device:str,eventTypes:Union[list[str],None]=Query(default=None),startTime:str=None,endTime:str=None):
-    timeFormat="%Y-%m-%dT%H:%M:%S.%fZ"
+@app.get("/projects/{project}/devices/{device}/events",tags=["Event History"],description=Desc["eventHistory"],response_model=Union[model_event_list_temperature,model_event_list_ccon,model_event_list_humidity,model_event_list_co2])
+async def event_history(
+    project:str=Path(description=QueryDesc["/projects/project/devices/device/events"]["project"]),
+    device:str=Path(description=QueryDesc["/projects/project/devices/device/events"]["device"]),
+    eventTypes:Union[list[str],None]=Query(default=None,description=QueryDesc["/projects/project/devices/device/events"]["eventTypes"]),
+    startTime:str=Query(default=None,description=QueryDesc["/projects/project/devices/device/events"]["startTime"]),
+    endTime:str=Query(default=None,description=QueryDesc["/projects/project/devices/device/events"]["endTime"])
+):
+    timeFormat="%Y-%m-%dT%H:%M:%SZ"
     if startTime is None:
         startTime=datetime.datetime.now()-datetime.timedelta(hours = 24)
     else:
@@ -110,46 +114,79 @@ async def event_history(project:str,device:str,eventTypes:Union[list[str],None]=
 
 
 
-@app.get("/alerts",tags=["Custom"],description=Desc["getAlerts"]) #this will require auth eventually
-async def alerts(employee_id:int=None,type:str=None): 
+@app.get("/alerts",tags=["Alert Management"],description=Desc["getAlerts"],response_model=Union[model_alert_list,model_error])
+async def alerts(
+    employee_id:int=Query(default=None,description=QueryDesc["/alerts"]["employee_id"]),
+    type:str=Query(default=None,description=QueryDesc["/alerts"]["type"])
+): 
     output=myAlerts.getAlerts(employee_id=employee_id,type=type)
     return output
 
-@app.get("/alerts/create",tags=["Custom"],description=Desc["createAlerts"]) #this will require auth eventually
-async def create_alert(employee_id:int,device_name:str,threshold:float,max:int): 
+@app.get("/alerts/create",tags=["Alert Management"],description=Desc["createAlerts"],response_model=Union[model_alert_create,model_error])
+async def create_alert(
+    employee_id:int=Query(description=QueryDesc["/alerts/create"]["employee_id"]),
+    device_name:str=Query(description=QueryDesc["/alerts/create"]["device_name"]),
+    threshold:float=Query(description=QueryDesc["/alerts/create"]["threshold"]),
+    max:int=Query(description=QueryDesc["/alerts/create"]["max"])
+): 
     output=myAlerts.createAlerts(employee_id,device_name,threshold,max)
     return output
 
-@app.get("/alerts/update/{alert_id}",tags=["Custom"],description=Desc["updateAlerts"]) #this will require auth eventually
-async def update_alert(alert_id:int,employee_id:int=None,device_name:int=None,threshold:float=None,max:int=None): 
+@app.get("/alerts/update/{alert_id}",tags=["Alert Management"],description=Desc["updateAlerts"],response_model=Union[model_alert_update,model_error])
+async def update_alert(
+    alert_id:int=Path(description=QueryDesc["/alerts/update/alert_id"]["alert_id"]),
+    employee_id:int=Query(default=None,description=QueryDesc["/alerts/update/alert_id"]["employee_id"]),
+    device_name:int=Query(default=None,description=QueryDesc["/alerts/update/alert_id"]["device_name"]),
+    threshold:float=Query(default=None,description=QueryDesc["/alerts/update/alert_id"]["threshold"]),
+    max:int=Query(default=None,description=QueryDesc["/alerts/update/alert_id"]["max"])
+): 
     output=myAlerts.updateAlerts(alert_id=alert_id,employee_id=employee_id,device_name=device_name,threshold=threshold,max=max)
     return output
 
-@app.get("/alerts/remove/{alert_id}",tags=["Custom"],description=Desc["removeAlerts"]) #this will require auth eventually
-async def remove_alert(alert_id:int): 
+@app.get("/alerts/remove/{alert_id}",tags=["Alert Management"],description=Desc["removeAlerts"],response_model=Union[model_remove,model_error])
+async def remove_alert(
+    alert_id:int=Path(description=QueryDesc["/alerts/remove/alert_id"]["alert_id"])
+): 
     output=myAlerts.removeAlerts(alert_id=alert_id)
     return output
 
 
-@app.get("/devices/create",tags=["Custom"],description=Desc["createDevices"]) #this will require auth eventually
-async def create_device(device_type:str,device_name:str,product_number:int,show:int=1,group_name:str=None): 
+@app.get("/devices/create",tags=["Device Management"],description=Desc["createDevices"],response_model=Union[model_device_create,model_error])
+async def create_device(
+    device_type:str=Query(description=QueryDesc["/devices/create"]["device_type"]),
+    device_name:str=Query(description=QueryDesc["/devices/create"]["device_name"]),
+    product_number:int=Query(description=QueryDesc["/devices/create"]["product_number"]),
+    show:int=Query(default=1,description=QueryDesc["/devices/create"]["show"]),
+    group_name:str=Query(default=None,description=QueryDesc["/devices/create"]["group_name"])
+): 
     output=myDevices.createDevice(device_type=device_type,device_name=device_name,product_number=product_number,show=show,group_name=group_name)
     return output
-  
-@app.get("/devices/update/{device}",tags=["Custom"],description=Desc["updateDevices"]) #this will require auth eventually
-async def update_devices(device:str,device_name:str=None,device_type:str=None,product_number:int=None,show:int=None,group_name:str=None): 
+
+@app.get("/devices/update/{device}",tags=["Device Management"],description=Desc["updateDevices"])
+async def update_devices(
+    device:str=Path(description=QueryDesc["/devices/update/device"]["device"]),
+    device_name:str=Query(default=None,description=QueryDesc["/devices/update/device"]["device_name"]),
+    device_type:str=Query(default=None,description=QueryDesc["/devices/update/device"]["device_type"]),
+    product_number:int=Query(default=None,description=QueryDesc["/devices/update/device"]["product_number"]),
+    show:int=Query(default=None,description=QueryDesc["/devices/update/device"]["show"]),
+    group_name:str=Query(default=None,description=QueryDesc["/devices/update/device"]["group_name"])
+): 
     device_id=myDevices.getDeviceIDFromName(device_name=device)
-    output=myDevices.updateDevice(device_id=device_id,device_type=device_type,device_name=device_name,product_number=product_number,show=show,group_name=group_name)
+    if device_id== {"error":"device_name {} not found".format(device)}:
+        return {"error":"unrecognised device {}".format(device)}
+    output=myDevices.updateDevice(device_id=device_id["device_id"],device_type=device_type,device_name=device_name,product_number=product_number,show=show,group_name=group_name)
     return output
 
-@app.get("/devices/remove/{device}",tags=["Custom"],description=Desc["removeDevices"]) #this will require auth eventually
-async def remove_device(device_id:int): 
-    output=myDevices.removeDevice(device_id=device_id)
+@app.get("/devices/remove/{device}",tags=["Device Management"],description=Desc["removeDevices"],response_model=Union[model_remove,model_error])
+async def remove_device(
+    device:str=Path(description=QueryDesc["/devices/remove/device"]["device"])
+): 
+    output=myDevices.removeDevice(device_name=device)
     return output
 
-
-
-@app.get("/employees",tags=["Custom"],description=Desc["getEmployees"])
-async def get_employees(employee_ids:Union[list[int],None]=Query(default=None)):
+@app.get("/employees",tags=["Employee Management"],description=Desc["getEmployees"],response_model=Union[model_employee_list,model_error])
+async def get_employees(
+    employee_ids:list[int]=Query(default=None,description=QueryDesc["/employees"]["employee_ids"])
+):
     output=myEmployees.getEmployees(employee_ids=employee_ids)
     return output

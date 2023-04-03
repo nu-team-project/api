@@ -45,6 +45,7 @@ class dataEmulater:
         
     def __genEmulatedData(this,prevData:dict[str],type:str):
         output={}
+        #make changes to the correct types of events for the type of device
         if type=="temperature":
             output["temperature"]=this.__changeAndRound(float(prevData["temperature"]),5,5,12.5,32,1,1)
             if int(float(prevData["battery"]))<=5:
@@ -117,13 +118,6 @@ class dataEmulater:
                 elif event_type == "cellularStatus":
                     prev_value["cellularStatus"]=event_value
 
-
-            # #if data for an event type is missing for a sensor, then use the default values set up in the class constructor. This is needed when devices have just been created, and have no events yet 
-            # print("prev_value = {}".format(prev_value))
-            # for eachDefault in this.defaultStartValues.keys():
-            #     if eachDefault not in prev_value.keys():
-            #         prev_value=this.defaultStartValues[eachDefault]
-
             #go through the events appropriate to the device and extract the exact data from them that will be operated on
             prev_data={}
             if this_device_type=="temperature":
@@ -142,28 +136,28 @@ class dataEmulater:
             new_data=this.__genEmulatedData(prevData=prev_data,type=this_device_type)
 
             #write the new events to the database
-            datetimeFormat="%Y-%m-%dT%H:%M:%S.%fZ"
+            datetimeFormat="%Y-%m-%dT%H:%M:%SZ"
             datetimeNow=datetime.datetime.strftime(datetime.datetime.now(),datetimeFormat)
             sql_insert="INSERT INTO events (device_id, value, datetime, event_type) VALUES "
             if this_device_type=="temperature":
-                this.db.run_insert(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,new_data["temperature"],datetimeNow,"temperature"))
-                this.db.run_insert(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,new_data["battery"],datetimeNow,"batteryStatus"))
-                this.db.run_insert(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,"-",datetimeNow,"touch"))
-                this.db.run_insert(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,prev_value["networkStatus"],datetimeNow,"networkStatus"))
+                this.db.run_no_return(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,new_data["temperature"],datetimeNow,"temperature"))
+                this.db.run_no_return(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,new_data["battery"],datetimeNow,"batteryStatus"))
+                this.db.run_no_return(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,"-",datetimeNow,"touch"))
+                this.db.run_no_return(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,prev_value["networkStatus"],datetimeNow,"networkStatus"))
             elif this_device_type=="humidity":
                 new_humidity="temperature:21.36,realtiveHumidity:"+str(new_data["humidity"])
-                this.db.run_insert(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,new_humidity,datetimeNow,"humidity"))
-                this.db.run_insert(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,new_data["battery"],datetimeNow,"batteryStatus"))
-                this.db.run_insert(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,"-",datetimeNow,"touch"))
-                this.db.run_insert(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,prev_value["networkStatus"],datetimeNow,"networkStatus"))
+                this.db.run_no_return(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,new_humidity,datetimeNow,"humidity"))
+                this.db.run_no_return(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,new_data["battery"],datetimeNow,"batteryStatus"))
+                this.db.run_no_return(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,"-",datetimeNow,"touch"))
+                this.db.run_no_return(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,prev_value["networkStatus"],datetimeNow,"networkStatus"))
             elif this_device_type=="co2":
-                this.db.run_insert(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,new_data["co2"],datetimeNow,"co2"))
-                this.db.run_insert(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,new_data["battery"],datetimeNow,"batteryStatus"))
-                this.db.run_insert(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,"-",datetimeNow,"touch"))
-                this.db.run_insert(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,prev_value["networkStatus"],datetimeNow,"networkStatus"))
+                this.db.run_no_return(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,new_data["co2"],datetimeNow,"co2"))
+                this.db.run_no_return(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,new_data["battery"],datetimeNow,"batteryStatus"))
+                this.db.run_no_return(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,"-",datetimeNow,"touch"))
+                this.db.run_no_return(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,prev_value["networkStatus"],datetimeNow,"networkStatus"))
             elif this_device_type=="ccon":
-                this.db.run_insert(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,"-",datetimeNow,"touch"))
-                this.db.run_insert(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,prev_value["ethernetStatus"],datetimeNow,"ethernetStatus"))
-                this.db.run_insert(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,prev_value["connectionStatus"],datetimeNow,"connectionStatus"))
-                this.db.run_insert(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,prev_value["cellularStatus"],datetimeNow,"cellularStatus"))
+                this.db.run_no_return(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,"-",datetimeNow,"touch"))
+                this.db.run_no_return(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,prev_value["ethernetStatus"],datetimeNow,"ethernetStatus"))
+                this.db.run_no_return(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,prev_value["connectionStatus"],datetimeNow,"connectionStatus"))
+                this.db.run_no_return(sql_insert+'({},"{}","{}","{}")'.format(this_device_id,prev_value["cellularStatus"],datetimeNow,"cellularStatus"))
         return

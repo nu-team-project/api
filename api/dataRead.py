@@ -1,13 +1,11 @@
-import random
-import string
 import datetime
-from api.dbConnect import *
 import httpx
+from api.dbConnect import *
 
 class dataRead:
     def __init__(this):
         this.db=dbConnect()
-        this.timeFormat="%Y-%m-%dT%H:%M:%S.%fZ"
+        this.timeFormat="%Y-%m-%dT%H:%M:%SZ"
         this.espTemperatureId="esp32temperature"
         this.espHumidityId="esp32humidity"
         this.espCo2Id="esp32co2"
@@ -17,9 +15,11 @@ class dataRead:
             "co2":"https://api.thingspeak.com/channels/2048224/fields/3.json?api_key=WNBPHCR9UFKPAV6N"
         }
 
-    async def getDevices(this,project_id:string=None,deviceTypes:list[str]=None,deviceIds:list[str]=None,labelFilters:list[str]=None):
+    async def getDevices(this,project_id:str=None,deviceTypes:list[str]=None,deviceIds:list[str]=None,labelFilters:list[str]=None):
         if project_id=="i7prjqnb2c4b6rob9xc2":
             sql_where=""
+
+            # if deviceTypes has values, then add them all to the sql query
             if deviceTypes is not None:
                 if sql_where!="":
                     sql_where+=" AND"
@@ -31,6 +31,8 @@ class dataRead:
                         sql_where+=","
                     sql_where+='"'+deviceTypes[i]+'"'
                 sql_where+=")"
+            
+            # if deviceIds has values, then add them all to the sql query
             if deviceIds is not None:
                 if sql_where!="":
                     sql_where+=" AND"
@@ -42,6 +44,8 @@ class dataRead:
                         sql_where+=","
                     sql_where+='"'+deviceIds[i]+'"'
                 sql_where+=")"
+
+            # if labelFilters has values, then add them all to the sql query
             if labelFilters is not None:
                 if sql_where!="":
                     sql_where+=" AND"
@@ -56,7 +60,6 @@ class dataRead:
                             groups.append(splitLabel[1])    
                         if splitLabel[0]=="show":
                             show.append(splitLabel[1])
-                
                 if len(groups)>0:
                     sql_where+=" groups.group_name IN ("
                     for i in range(len(groups)):
@@ -64,7 +67,6 @@ class dataRead:
                             sql_where+=","
                         sql_where+='"'+groups[i]+'"'
                     sql_where+=")"
-
                 if len(show)>0:
                     if len(groups)>0:
                         sql_where+=" AND"
@@ -75,6 +77,7 @@ class dataRead:
                         sql_where+='"'+show[i]+'"'
                     sql_where+=")"
             
+            # get the device data
             query="""
             SELECT device_name, type, group_name, show, product_number
             FROM devices
@@ -83,6 +86,8 @@ class dataRead:
             """
             query+=sql_where
             rows=this.db.run_query(query)
+
+            # format the data into the Disruptive Technologies format
             output=[]
             for each in rows:
                 output.append({
@@ -96,6 +101,8 @@ class dataRead:
                     "productNumber":each[4]
                 })
             
+
+            # add the data from the esp32 based devices if applicable
             if labelFilters==None or "group=esp32" in labelFilters:
                 esp32jsonFull=await this.getEspDevice()
                 esp32List=[]
@@ -109,97 +116,118 @@ class dataRead:
             return output
             
     def __DT1BetweenDT2andDT3(this,dateTime1:datetime.datetime,dateTime2:datetime.datetime,dateTime3:datetime.datetime):
+        # return True if dateTime2<dateTime1<dateTime3
         if dateTime2<dateTime1 and dateTime1<dateTime3:
+            return True
+        else:
+            return False
+        
+    def __DT1BeforeDT2(this,dateTime1:datetime.datetime,dateTime2:datetime.datetime):
+        # return True if dateTime1<dateTime2
+        if dateTime2>dateTime1:
             return True
         else:
             return False
 
     def __oneDeviceLastEvents(this,project_id:str,device_id:str,type:str):
-        sql_latestEvents="""
-        SELECT event_id, device_name, value, datetime, event_type
-        FROM (
+        # get all events associated with the device
+        sql_getEvents="""
         SELECT event_id, device_name, value, datetime, event_type
         FROM events
         INNER JOIN devices
         ON events.device_id = devices.device_id
         WHERE device_name = "{}"
-        ORDER BY datetime DESC
-        )
-        GROUP BY event_type
-        ORDER BY event_type
         """.format(device_id)
-        rows=this.db.run_query(sql_latestEvents)
+        rows=this.db.run_query(sql_getEvents)
+        
+        # return nothing if no events found
         if len(rows)==0:
             return {}
+        
+        # get the most recent events for each device type
+        latestEvents={}
+        for each in rows:
+            each_event_type=each[4]
+            if each_event_type in latestEvents.keys():
+                if this.__DT1BeforeDT2(datetime.datetime.strptime(latestEvents[each_event_type][3],this.timeFormat),datetime.datetime.strptime(each[3],this.timeFormat)):
+                    latestEvents[each_event_type]=each
+            else:
+                latestEvents[each_event_type]=each
+    
+        # extract the data for the relavent events based on the device type and format them in the Disruptive Technologies style
         output={}
         if type == "temperature":
-            output["temperature"]={"value":rows[2][2],"updateTime":rows[2][3]}
-            networkStatus_value=rows[1][2].split(",")
+            output["temperature"]={"value":latestEvents["temperature"][2],"updateTime":latestEvents["temperature"][3]}
+            networkStatus_value=latestEvents["networkStatus"][2].split(",")
             signalStrength=networkStatus_value[0].split(":")[1]
             rssi=networkStatus_value[1].split(":")[1]
             cc_id=networkStatus_value[2].split(":")[1]
             cc_signalStrength=networkStatus_value[3].split(":")[1]
             cc_rssi=networkStatus_value[4].split(":")[1]
             transmissionMode=networkStatus_value[5].split(":")[1]
-            output["networkStatus"]={"signalStrength": signalStrength,"rssi": rssi,"updateTime": rows[1][3],"cloudConnectors": [{"id": cc_id,"signalStrength": cc_signalStrength,"rssi": cc_rssi,}],"transmissionMode": transmissionMode}
-            output["batteryStatus"]={"percentage": rows[0][2],"updateTime": rows[0][3]} 
-            output["touch"]={"updateTime": rows[3][3]}
+            output["networkStatus"]={"signalStrength": signalStrength,"rssi": rssi,"updateTime": latestEvents["networkStatus"][3],"cloudConnectors": [{"id": cc_id,"signalStrength": cc_signalStrength,"rssi": cc_rssi,}],"transmissionMode": transmissionMode}
+            output["batteryStatus"]={"percentage": latestEvents["batteryStatus"][2],"updateTime": latestEvents["batteryStatus"][3]} 
+            output["touch"]={"updateTime": latestEvents["touch"][3]}
         elif type == "humidity":
-            humidity_value=rows[1][2].split(",")
+            humidity_value=latestEvents["humidity"][2].split(",")
             temperature=humidity_value[0].split(":")[1]
             relativeHumidity=humidity_value[1].split(":")[1]
-            output["humidity"]={"temperature": temperature,"relativeHumidity":relativeHumidity,"updateTime":rows[1][3]}
-            networkStatus_value=rows[2][2].split(",")
+            output["humidity"]={"temperature": temperature,"relativeHumidity":relativeHumidity,"updateTime":latestEvents["humidity"][3]}
+            networkStatus_value=latestEvents["networkStatus"][2].split(",")
             signalStrength=networkStatus_value[0].split(":")[1]
             rssi=networkStatus_value[1].split(":")[1]
             cc_id=networkStatus_value[2].split(":")[1]
             cc_signalStrength=networkStatus_value[3].split(":")[1]
             cc_rssi=networkStatus_value[4].split(":")[1]
             transmissionMode=networkStatus_value[5].split(":")[1]
-            output["networkStatus"]={"signalStrength": signalStrength,"rssi": rssi,"updateTime": rows[2][3],"cloudConnectors": [{"id": cc_id,"signalStrength": cc_signalStrength,"rssi": cc_rssi,}],"transmissionMode": transmissionMode}
-            output["batteryStatus"]={"percentage": rows[0][2],"updateTime": rows[0][3]}
-            output["touch"]={"updateTime": rows[3][3]}
+            output["networkStatus"]={"signalStrength": signalStrength,"rssi": rssi,"updateTime": latestEvents["networkStatus"][3],"cloudConnectors": [{"id": cc_id,"signalStrength": cc_signalStrength,"rssi": cc_rssi,}],"transmissionMode": transmissionMode}
+            output["batteryStatus"]={"percentage": latestEvents["batteryStatus"][2],"updateTime": latestEvents["batteryStatus"][3]}
+            output["touch"]={"updateTime": latestEvents["touch"][3]}
         elif type == "co2":
-            output["co2"]={"ppm":rows[1][2],"updateTime":rows[1][3]}    
-            networkStatus_value=rows[2][2].split(",")
+            output["co2"]={"ppm":latestEvents["co2"][2],"updateTime":latestEvents["co2"][3]}    
+            networkStatus_value=latestEvents["networkStatus"][2].split(",")
             signalStrength=networkStatus_value[0].split(":")[1]
             rssi=networkStatus_value[1].split(":")[1]
             cc_id=networkStatus_value[2].split(":")[1]
             cc_signalStrength=networkStatus_value[3].split(":")[1]
             cc_rssi=networkStatus_value[4].split(":")[1]
             transmissionMode=networkStatus_value[5].split(":")[1]
-            output["networkStatus"]={"signalStrength": signalStrength,"rssi": rssi,"updateTime": rows[2][3],"cloudConnectors": [{"id": cc_id,"signalStrength": cc_signalStrength,"rssi": cc_rssi,}],"transmissionMode": transmissionMode}
-            output["batteryStatus"]={"percentage": rows[0][2],"updateTime": rows[0][3]}
-            output["touch"]={"updateTime": rows[3][3]}
+            output["networkStatus"]={"signalStrength": signalStrength,"rssi": rssi,"updateTime": latestEvents["networkStatus"][3],"cloudConnectors": [{"id": cc_id,"signalStrength": cc_signalStrength,"rssi": cc_rssi,}],"transmissionMode": transmissionMode}
+            output["batteryStatus"]={"percentage": latestEvents["batteryStatus"][2],"updateTime": latestEvents["batteryStatus"][3]}
+            output["touch"]={"updateTime": latestEvents["touch"][3]}
         elif type == "ccon":
-            connection_value=rows[1][2].split(",")
+            connection_value=latestEvents["connectionStatus"][2].split(",")
             connection=connection_value[0].split(":")[1]
             available=connection_value[1].split(":")[1].split("[")[1].split("]")[0].split(";")
-            output["connectionStatus"]={ "connection": connection,"available": available,"updateTime": rows[1][3]}
-            ethernet_value=rows[2][2].split(",")
+            output["connectionStatus"]={ "connection": connection,"available": available,"updateTime": latestEvents["connectionStatus"][3]}
+            ethernet_value=latestEvents["ethernetStatus"][2].split(",")
             macAddress=ethernet_value[0].split(":",1)[1]
             ipAddress=ethernet_value[1].split(":",1)[1]
             errors=ethernet_value[2].split(":",1)[1].split("[")[1].split("]")[0].split(";")
             errorCode=errors[0].split(":",1)[1]
             errorMessage=errors[1].split(":",1)[1]
-            output["ethernetStatus"]={"macAddress":macAddress,"ipAddress":ipAddress,"errors":[{"code":errorCode,"message":errorMessage},],"updateTime":rows[2][3]}
-            cellular_value=rows[0][2].split(",")
+            output["ethernetStatus"]={"macAddress":macAddress,"ipAddress":ipAddress,"errors":[{"code":errorCode,"message":errorMessage},],"updateTime":latestEvents["ethernetStatus"][3]}
+            cellular_value=latestEvents["cellularStatus"][2].split(",")
             signalStrength=cellular_value[0].split(":")[1]
             errors=cellular_value[1].split(":",1)[1].split("[")[1].split("]")[0].split(";")
             errorCode=errors[0].split(":",1)[1]
             errorMessage=errors[1].split(":",1)[1]
-            output["cellularStatus"]={"signalStrength": signalStrength,"errors":[{"code": errorCode, "message": errorMessage},],"updateTime":rows[0][3],}
-            output["touch"]={"updateTime": rows[3][3]}
+            output["cellularStatus"]={"signalStrength": signalStrength,"errors":[{"code": errorCode, "message": errorMessage},],"updateTime":latestEvents["cellularStatus"][3],}
+            output["touch"]={"updateTime": latestEvents["touch"][3]}
         return output
 
-    async def getEvents(this,project_id:string=None,device_id:string=None,eventTypes:list[str]=None,startTime:datetime.datetime=None,endTime:datetime.datetime=None,pageSize:int=None):
+    async def getEvents(this,project_id:str=None,device_id:str=None,eventTypes:list[str]=None,startTime:datetime.datetime=None,endTime:datetime.datetime=None,pageSize:int=None):
+        # set the default values for startTime and endTime
         if startTime is None:
             startTime=datetime.datetime.now()-datetime.timedelta(hours = 24)
         if endTime is None:
             endTime=datetime.datetime.now()
+
+        # add the esp32 based devices to the output if requested
         if device_id in [this.espTemperatureId,this.espHumidityId,this.espCo2Id]:
             datetimeNow=datetime.datetime.strftime(datetime.datetime.now(),this.timeFormat)
             output=[]
+            
             if eventTypes==None or "networkStatus" in eventTypes:
                     output.append({
                         "networkStatus": {
@@ -227,7 +255,6 @@ class dataRead:
                             "updateTime": datetimeNow
                         }
                     })
-            link=None
             if device_id==this.espTemperatureId and (eventTypes==None or "temperature" in eventTypes):
                 async with httpx.AsyncClient() as client:
                     response = await client.get(this.espLinks["temperature"])
@@ -248,7 +275,7 @@ class dataRead:
                 for each in esp32feed:
                     reformattedFeed.append({
                         "humidity": {
-                            "temperature": 21, #note: could be changed to get value from temp sensor but is a maybe feature
+                            "temperature": 21,
                             "relativeHumidity": each["field2"],
                             "updateTime": each["created_at"]
                         }
@@ -267,7 +294,9 @@ class dataRead:
                     })
             output=output+reformattedFeed
 
+        # otherwise return data from the database
         else:
+            # get the data for all events in the database
             query="""
             SELECT event_id, device_name, value, datetime, event_type
             FROM events
@@ -275,6 +304,8 @@ class dataRead:
             ON events.device_id = devices.device_id
             """
             sql_where='WHERE device_name = "'+device_id+'"'
+
+            # filter by eventTypes if provided
             if eventTypes is not None:
                 sql_where+=" AND events.event_type IN ("
                 for i in range(len(eventTypes)):
@@ -285,6 +316,9 @@ class dataRead:
             query+=sql_where
             rows=this.db.run_query(query)
             output=[]
+
+            # for each event retrieved, check the datetime is valid depending on startTime and endTime
+            # then format in the Disruptive Technologies style
             for each in rows:
                 if this.__DT1BetweenDT2andDT3(datetime.datetime.strptime(each[3],this.timeFormat),startTime,endTime):
                     if each[4] == "temperature":
@@ -393,6 +427,7 @@ class dataRead:
         return output
 
     async def getEspDevice(this):
+        # get each esp32 based device sensor data seperately and extract the useful data
         async with httpx.AsyncClient() as client:
             response_temp = await client.get(this.espLinks["temperature"])
             response_humidity = await client.get(this.espLinks["humidity"])
@@ -401,37 +436,11 @@ class dataRead:
             esp32["temperature"]=response_temp.json()
             esp32["humidity"]=response_humidity.json()
             esp32["co2"]=response_co2.json()
-        #remove the string below:
-        example_thingspeak_response="""{ 
-            "channel":{
-                "id":2048224,
-                "name":"esp32",
-                "latitude":"0.0",
-                "longitude":"0.0",
-                "field1":"temp",
-                "field2":"humidity",
-                "field3":"eco2",
-                "created_at":"2023-02-28T09:45:47Z",
-                "updated_at":"2023-03-16T03:18:15Z",
-                "last_entry_id":1078
-            },
-            "feeds":[
-                {
-                    "created_at":"2023-03-16T12:21:41Z",
-                    "entry_id":1077,
-                    "field1":"25.27561"
-                },
-                {
-                    "created_at":"2023-03-16T12:22:12Z",
-                    "entry_id":1078,
-                    "field1":"25.29774"
-                }
-            ]
-        }"""
-        #end remove
         latest_temperature_event=esp32["temperature"]["feeds"][-1]
         latest_humidity_event=esp32["humidity"]["feeds"][-1]
         latest_co2_event=esp32["co2"]["feeds"][-1]
+
+        # reformat into the Disruptive Technologies style of device data
         datetimeNow=datetime.datetime.strftime(datetime.datetime.now(),this.timeFormat)
         show=1
         esp32Temperature={
@@ -489,97 +498,10 @@ class dataRead:
             },
             "productNumber": esp32["co2"]["channel"]["id"]+3
         }
+
+        # return the data
         result={}
         result["temperature"]=esp32Temperature
         result["humidity"]=esp32Humidity
         result["co2"]=esp32Co2
         return result
-
-
-
-
-    def __getProjectIdFromName(this,name:str):
-        return name.rsplit('/')[2]
-
-    def __getDeviceIdFromName(this,name:str):
-        return name.rsplit('/', 1)[-1]
-
-    def __randomString(this,length:int=20):
-        return "".join(random.choice(string.ascii_lowercase) for i in range(length))
-    
-    def __emptyEvents(this,type:str):
-        allEvents={
-            "sensor":{
-                "networkStatus": {
-                    "signalStrength": None, #network_signalStrength,
-                    "rssi": None, #network_rssi,
-                    "updateTime": None, #network_updateTime,
-                    "cloudConnectors": [
-                        {
-                        "id": None, #network_ccon_id,
-                        "signalStrength": None, #network_ccon_signalStrength,
-                        "rssi": None, #network_ccon_rssi
-                        }
-                    ],
-                    "transmissionMode": "LOW_POWER_STANDARD_MODE"
-                },
-                "batteryStatus": {
-                        "percentage": None, #battery_percentage,
-                        "updateTime": None, #battery_updateTime
-                },
-                "touch": {
-                    "updateTime": None, #touch_updateTime
-                }
-            },
-            "ccon":{
-                "connectionStatus": {
-                    "connection": None, #connStatus_conn, #Either ETHERNET or CELLULAR - ETHERNET if available(see below) or OFFLINE if neither
-                    "available": None, #connStatus_available, #["ETHERNET"], ["CELLULAR"], ["ETHERNET","CELLULAR"] or []
-                    "updateTime": None #connStatus_updateTime
-                },
-                "ethernetStatus": {
-                    "macAddress": None, #ethernetStatus_macAddress,
-                    "ipAddress": None, #ethernetStatus_ipAddress,
-                    "errors": [
-                        {"code": 404, "message": "Not found"},
-                    ],
-                    "updateTime": None, #ethernetStatus_updateTime
-                },
-                "cellularStatus": {
-                    "signalStrength": None, #cellularStatus_signalStrength,
-                    "errors": [
-                        {"code": 404, "message": "Not found"},
-                    ],
-                    "updateTime": None, #cellularStatus_updateTime
-                },
-                "touch": {
-                    "updateTime": None, #touch_updateTime
-                },
-            },
-            "temperature":{
-                "value": None,
-                "updateTime": None
-            },
-            "humidity":{
-                "temperature": None,
-                "relativeHumidity": None,
-                "updateTime": None
-            },
-            "co2":{
-                "co2": {
-                    "ppm": None,
-                    "updateTime": None
-                }
-            }
-        }
-        if type == "ccon":
-            events=allEvents["ccon"]
-        elif type == "temperature":
-            events=allEvents["temperature"]|allEvents["sensor"]
-        elif type == "humidity":
-            events=allEvents["humidity"]|allEvents["sensor"]
-        elif type == "co2":
-            events=allEvents["co2"]|allEvents["sensor"]
-        else:
-            events={}
-        return events

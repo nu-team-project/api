@@ -7,24 +7,30 @@ class dbConnect:
 
     def run_query(this, query):
         conn = None
+        #check if the database can be connected to
         try:
             conn = sqlite3.connect(this.__database)
         except Error as e:
             print(e)
             return
+        #connect to the database
         conn = sqlite3.connect(this.__database)
         cur = conn.cursor()
         cur.execute(query)
+        #retrieve all the data
         rows = cur.fetchall()
+        #close the connection to the database
         conn.close()
         return rows
     
-    def run_insert(this, query): #maybe rename to run_command or run_no_return ?
+    def run_no_return(this, query):
         conn = None
+        #check if the database can be connected to
         try:
             conn = sqlite3.connect(this.__database)
         except Error as e:
             print(e)
+        #execute the query on the database
         with conn:
             cur = conn.cursor()
             cur.execute(query)

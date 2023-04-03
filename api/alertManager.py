@@ -7,21 +7,31 @@ class alertManager:
     def getAlerts(this,auth:bool=True,employee_id:int=None,type:str=None):
         if not auth:
             return {"error":"authorisation failed"}
-        where:str=None
+        
+        where=""
         query="SELECT alert_id, employee_id, device_name, type, threshold, max FROM alerts INNER JOIN devices ON alerts.device_id = devices.device_id"
+        
+        #if an employee_id has been provided then check it exists, returning an error if not or adding it to the sql query if it does 
         if employee_id is not None:
             sql_checkEmployeeId="Select * from employees where employee_id = {}".format(employee_id)
             rows=this.db.run_query(sql_checkEmployeeId)
             if len(rows)==0:
                 return {"error":"employee_id {} not found".format(employee_id)}
-            where=(" WHERE" if where is None else where+" AND")+(" employee_id="+str(employee_id))
+            where+=(" WHERE" if where is None else where+" AND")+(" employee_id='{}'".format(employee_id))
+        
+        #if type has been provided then check it is a valid value, returning an error if not or adding it to the sql query if it does 
         if type is not None:
             if type not in ["temperature","humidity","co2","ccon"]:
                 return {"error","unknown type {}".format(type)}
-            where=(" WHERE" if where is None else where+" AND")+(" type="+type)
-        if where is not None:
-            query+=where
+            where+=(" WHERE" if where is None else where+" AND")+(" type='{}'".format(type))
+
+
+        #retrieve the data from the database
+        query+=where
         rows=this.db.run_query(query)
+
+
+        #reformat the data so it has labels
         output=[]
         columns=["alert_id", "employee_id", "device_name", "type", "threshold", "max"]
         for each in rows:
@@ -30,15 +40,24 @@ class alertManager:
                 alert[columns[i]]=each[i]
             output.append(alert)
         return {"message":"success","alerts":output}
-        
-       
+
+
+
     def createAlerts(this,employee_id:int,device_name:str,threshold:float,max:int,auth:bool=True):
         if not auth:
             return {"error":"authorisation failed"}
         
+        #check that max has a valid value
         if max not in [0,1]:
             return {"error": "max value {} not recognised, must be 0 or 1".format(max)}
         
+        #check that the employee_id exists in the database
+        sql_checkEmployeeId="""SELECT * FROM employees WHERE employee_id='{}'""".format(employee_id)
+        rows=this.db.run_query(sql_checkEmployeeId)
+        if len(rows)==0:
+            return {"error":"unkown employee_id {}".format(employee_id)}
+
+        #check that there isn't an alert with the exact same details already
         sqlCheckExisting="""
         SELECT alert_id, employee_id, device_name, type, threshold, max
         FROM alerts 
@@ -53,17 +72,23 @@ class alertManager:
         if len(rows)>0:
             return {"error":"exact alert found in database"}
         
+        #get the device_id used by the database rather than the device_name used by the user and return an error if the device_name doesn't exist
         sqlGetDeviceId="SELECT device_id FROM devices WHERE device_name='{}'".format(device_name)
         rows=this.db.run_query(sqlGetDeviceId)
         if len(rows)==0:
             return {"error":"unrecognised device_name {}".format(device_name)}
         device_id=rows[0][0]
+
+        #create the alert
         sqlCreateAlert="INSERT INTO alerts (employee_id, device_id, threshold, max) VALUES ('{}','{}','{}','{}')".format(employee_id,device_id,threshold,max)
-        this.db.run_insert(sqlCreateAlert)
+        this.db.run_no_return(sqlCreateAlert)
+        
+        #make sure it can be found after creating
         rows=this.db.run_query(sqlCheckExisting)
         if len(rows)==0:
             return {"error":"Alert Not found in database after insert"}
         
+        #reformat the data so it has labels
         output=[]
         columns=["alert_id", "employee_id", "device_name", "type", "threshold", "max"]
         for each in rows:
@@ -123,40 +148,45 @@ class alertManager:
             for i in range(1,len(sqlSetList)):
                 sqlSet+=", "+sqlSetList[i]
         sqlUpdate="UPDATE alerts SET {} WHERE alert_id = '{}'".format(sqlSet,alert_id)
-        this.db.run_insert(sqlUpdate)
+        this.db.run_no_return(sqlUpdate)
         
-        #check that the device_id still exists in the database and hasn't been corrupted/lost
-        rows=this.db.run_query(sqlCheckAlertId)
+        #get the updated data, and check that the device_id still exists in the database and hasn't been corrupted/lost
+        sqlCheckExisting="""
+SELECT alert_id, employee_id, device_name, type, threshold, max 
+FROM alerts 
+INNER JOIN devices
+ON alerts.device_id=devices.device_id
+WHERE alert_id='{}'""".format(alert_id)
+        rows=this.db.run_query(sqlCheckExisting)
         if len(rows)==0:
             return {"error":"Alert not found in database after update"}
         
-        #format the updated data to be output as easier to read json and return it
+        #reformat the data so it has labels
         output=[]
-        columns=["alert_id", "employee_id", "device_id", "threshold", "max"]
+        columns=["alert_id", "employee_id", "device_name", "type", "threshold", "max"]
         for each in rows:
             alert={}
             for i in range(len(columns)):
                 alert[columns[i]]=each[i]
+            
             output.append(alert)
-            return {"message":"success", "updated alert": output}
+            return {"message":"success", "updatedAlert": output}
         
     def removeAlerts(this,alert_id:int,auth:bool=True):
         if not auth:
             return {"error":"authorisation failed"}
         
-        #validate data
-        #-check if alert exists
+        #check that the alert_id exists in the database
         sqlCheckExisting="SELECT * FROM alerts WHERE alert_id='{}'".format(alert_id)
         rows=this.db.run_query(sqlCheckExisting)
         if len(rows)==0:
             return {"error":"unrecognised alert_id {}".format(alert_id)}
         
-        #execute query
+        #delete the alert
         sqlRemove="DELETE FROM alerts WHERE alert_id = '{}'".format(alert_id)
-        this.db.run_insert(sqlRemove)
+        this.db.run_no_return(sqlRemove)
         
-
-        #return errors/success message
+        #check that the alert no longer exists
         rows=this.db.run_query(sqlCheckExisting)
         if len(rows)!=0:
             return {"error":"alert with alert_id={} found in database after deletion".format(alert_id)}
